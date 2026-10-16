@@ -12,14 +12,27 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
     window.print();
   };
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const shopName = import.meta.env.VITE_SHOP_NAME || 'Sastika Mobiles';
   const shopPhone = import.meta.env.VITE_SHOP_PHONE || '+91 98765 43210';
   const shopAddress = import.meta.env.VITE_SHOP_ADDRESS || 'Main Road, Bazaar Street, Tamil Nadu';
   const shopGstin = import.meta.env.VITE_SHOP_GSTIN || '33AAAAA0000A1Z5';
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+    >
+      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150 cursor-default">
         {/* Action Header - Hidden on Print */}
         <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white no-print">
           <div className="flex items-center gap-2">

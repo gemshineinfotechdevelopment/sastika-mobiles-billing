@@ -157,6 +157,7 @@ export function App() {
           <BillingPage
             products={products}
             onInvoiceCreated={handleInvoiceCreated}
+            onOpenAddCustomer={() => setShowAddCustomerModal(true)}
           />
         )}
 
