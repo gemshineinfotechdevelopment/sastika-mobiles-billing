@@ -17,6 +17,7 @@ import { AddCustomerModal } from './components/modals/AddCustomerModal';
 import { api } from './services/api';
 import type { Bill, HealthResponse, Product } from './types';
 import { INITIAL_PRODUCTS } from './data/initialProducts';
+import { INITIAL_BILLS } from './data/initialBills';
 import { AlertCircle, X } from 'lucide-react';
 import './App.css';
 
@@ -25,7 +26,7 @@ export function App() {
   const [serverHealth, setServerHealth] = useState<HealthResponse | null>(null);
   const [serverLoading, setServerLoading] = useState(false);
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [bills, setBills] = useState<Bill[]>([]);
+  const [bills, setBills] = useState<Bill[]>(INITIAL_BILLS);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
@@ -54,7 +55,7 @@ export function App() {
       if (prodsRes.products && prodsRes.products.length > 0) {
         setProducts(prodsRes.products);
       }
-      if (billsRes.bills) {
+      if (billsRes.bills && billsRes.bills.length > 0) {
         setBills(billsRes.bills);
       }
     } catch (err) {
@@ -180,6 +181,7 @@ export function App() {
           <SalesPage
             bills={bills}
             onSelectBill={(bill) => setSelectedBill(bill)}
+            onNewBill={() => setActiveTab('billing')}
           />
         )}
 
@@ -191,7 +193,13 @@ export function App() {
 
         {activeTab === 'purchases' && <PurchasesPage />}
 
-        {activeTab === 'reports' && <ReportsPage bills={bills} />}
+        {activeTab === 'reports' && (
+          <ReportsPage
+            bills={bills}
+            products={products}
+            onNavigateTab={(tab) => setActiveTab(tab)}
+          />
+        )}
 
         {activeTab === 'settings' && <SettingsPage />}
       </MainLayout>
