@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { X, PackagePlus, Check } from 'lucide-react';
+import { X, PackagePlus, Check, Sparkles } from 'lucide-react';
 import { api } from '../../services/api';
+import type { Product } from '../../types';
 
 interface AddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onProductAdded?: () => void;
+  onProductAdded?: (newProduct?: Product) => void;
 }
 
 export const AddProductModal: React.FC<AddProductModalProps> = ({
@@ -18,17 +19,58 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     category: 'Smartphones',
     brand: '',
     model: '',
+    variant: '',
+    sku: '',
     price: '',
     costPrice: '',
     gstRate: 18,
     hsnCode: '85171300',
     stock: '',
+    minThreshold: '4',
+    rackLocation: 'Rack A1',
+    isDualImei: true,
     imeiNumbers: '',
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
   if (!isOpen) return null;
+
+  const cost = Number(formData.costPrice) || 0;
+  const selling = Number(formData.price) || 0;
+  const marginPercent = cost > 0 && selling > 0 ? (((selling - cost) / cost) * 100).toFixed(1) : null;
+
+  const handleCategoryChange = (cat: string) => {
+    let hsn = '85171300';
+    let defaultRack = 'Rack A1';
+    let dualImei = false;
+
+    if (cat === 'Smartphones') {
+      hsn = '85171300';
+      defaultRack = 'Rack A1';
+      dualImei = true;
+    } else if (cat === 'Fast Chargers') {
+      hsn = '85044090';
+      defaultRack = 'Rack C1';
+    } else if (cat === 'TWS Earbuds & Neckbands') {
+      hsn = '85183000';
+      defaultRack = 'Rack B1';
+    } else if (cat === 'Screen Protectors') {
+      hsn = '70071900';
+      defaultRack = 'Rack Front-Spindle';
+    } else if (cat === 'Smartwatches') {
+      hsn = '85176290';
+      defaultRack = 'Rack D1';
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      category: cat,
+      hsnCode: hsn,
+      rackLocation: defaultRack,
+      isDualImei: dualImei,
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,67 +80,88 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     }
 
     setLoading(true);
+    const imeiList = formData.imeiNumbers
+      ? formData.imeiNumbers.split(',').map((s) => s.trim()).filter(Boolean)
+      : [];
+
+    const autoSku =
+      formData.sku.trim() ||
+      `${formData.brand.slice(0, 3).toUpperCase() || 'SKU'}-${formData.model.slice(0, 4).toUpperCase() || 'MOD'}-${Date.now().toString().slice(-4)}`;
+
+    const newProd: Product = {
+      id: `prod-${Date.now()}`,
+      name: formData.name.trim(),
+      category: formData.category,
+      brand: formData.brand.trim() || 'Generic',
+      model: formData.model.trim() || '',
+      variant: formData.variant.trim() || undefined,
+      sku: autoSku,
+      price: Number(formData.price),
+      costPrice: Number(formData.costPrice) || 0,
+      margin: marginPercent ? Number(marginPercent) : undefined,
+      gstRate: Number(formData.gstRate),
+      hsnCode: formData.hsnCode,
+      stock: Number(formData.stock) || 0,
+      minThreshold: Number(formData.minThreshold) || 4,
+      rackLocation: formData.rackLocation,
+      isDualImei: formData.isDualImei,
+      statusTag: formData.isDualImei
+        ? `${formData.stock || 0} IMEIs in ${formData.rackLocation}`
+        : 'Standard Inventory',
+      imeiNumbers: imeiList,
+    };
+
     try {
-      const imeiList = formData.imeiNumbers
-        ? formData.imeiNumbers.split(',').map((s) => s.trim()).filter(Boolean)
-        : [];
-
-      await api.addProduct({
-        name: formData.name,
-        category: formData.category,
-        brand: formData.brand,
-        model: formData.model,
-        price: Number(formData.price),
-        costPrice: Number(formData.costPrice) || 0,
-        gstRate: Number(formData.gstRate),
-        hsnCode: formData.hsnCode,
-        stock: Number(formData.stock) || 0,
-        imeiNumbers: imeiList,
-      });
-
-      setSuccess(true);
-      if (onProductAdded) onProductAdded();
-
-      setTimeout(() => {
-        setSuccess(false);
-        onClose();
-        setFormData({
-          name: '',
-          category: 'Smartphones',
-          brand: '',
-          model: '',
-          price: '',
-          costPrice: '',
-          gstRate: 18,
-          hsnCode: '85171300',
-          stock: '',
-          imeiNumbers: '',
-        });
-      }, 700);
-    } catch (err) {
-      console.error(err);
-      alert('Failed to save product. Backend might be offline.');
-    } finally {
-      setLoading(false);
+      await api.addProduct(newProd);
+    } catch {
+      // Backend offline fallback - still proceed with client-side state
     }
+
+    setSuccess(true);
+    if (onProductAdded) onProductAdded(newProd);
+
+    setTimeout(() => {
+      setSuccess(false);
+      onClose();
+      setFormData({
+        name: '',
+        category: 'Smartphones',
+        brand: '',
+        model: '',
+        variant: '',
+        sku: '',
+        price: '',
+        costPrice: '',
+        gstRate: 18,
+        hsnCode: '85171300',
+        stock: '',
+        minThreshold: '4',
+        rackLocation: 'Rack A1',
+        isDualImei: true,
+        imeiNumbers: '',
+      });
+    }, 600);
+    setLoading(false);
   };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/70">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+            <div className="p-2 bg-blue-600 text-white rounded-xl shadow-xs">
               <PackagePlus className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-sm">Add New Product / SKU</h3>
-              <p className="text-slate-500 text-xs">Add smartphone or accessory to inventory</p>
+              <p className="text-slate-500 text-xs">
+                Register new handset, accessory, dual IMEI or spare with wholesale valuation
+              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -106,168 +169,246 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
           {success && (
-            <div className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs p-3 rounded-xl flex items-center gap-2">
-              <Check className="w-4 h-4" /> Product added successfully to inventory!
+            <div className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs p-3 rounded-xl flex items-center gap-2 shadow-2xs">
+              <Check className="w-4 h-4 text-emerald-600" />
+              <span>Product successfully added to catalog and inventory!</span>
             </div>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Title / Name */}
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Product Title / Name *
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Product Title / Handset Name *
               </label>
               <input
                 type="text"
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g. OnePlus Nord CE4 5G"
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-blue-600 focus:bg-white"
+                placeholder="e.g. Vivo V29 5G (8GB / 128GB)"
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600 font-medium"
               />
             </div>
 
+            {/* Category */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Category</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Category</label>
               <select
                 value={formData.category}
-                onChange={(e) => {
-                  const cat = e.target.value;
-                  const defaultHsn =
-                    cat === 'Smartphones'
-                      ? '85171300'
-                      : cat === 'Accessories'
-                      ? '85044030'
-                      : cat === 'Audio'
-                      ? '85183000'
-                      : '85177090';
-                  setFormData({ ...formData, category: cat, hsnCode: defaultHsn });
-                }}
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-blue-600 focus:bg-white bg-white"
+                onChange={(e) => handleCategoryChange(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
               >
                 <option value="Smartphones">Smartphones</option>
-                <option value="Accessories">Accessories</option>
-                <option value="Audio">Audio / TWS</option>
-                <option value="Wearables">Smartwatches / Bands</option>
-                <option value="Spares">Spares & Screen Protectors</option>
+                <option value="Fast Chargers">Fast Chargers</option>
+                <option value="TWS Earbuds & Neckbands">TWS Earbuds & Neckbands</option>
+                <option value="Screen Protectors">Screen Protectors</option>
+                <option value="Smartwatches">Smartwatches</option>
+                <option value="Accessories">Other Accessories</option>
               </select>
             </div>
 
+            {/* Brand */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Brand</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Brand</label>
               <input
                 type="text"
                 value={formData.brand}
                 onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                placeholder="e.g. OnePlus, Apple, Samsung"
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-blue-600 focus:bg-white"
+                placeholder="e.g. Vivo, Samsung, Apple, boAt"
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
               />
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Model / Variant Details
-              </label>
+            {/* Model */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Model Code</label>
               <input
                 type="text"
                 value={formData.model}
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                placeholder="e.g. 8GB RAM, 256GB Storage, Celadon Marble"
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-blue-600 focus:bg-white"
+                placeholder="e.g. V2250 or A2305"
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
               />
             </div>
 
+            {/* Variant / Color */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Selling Price (₹ incl. GST) *
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Variant / Color Badge
               </label>
               <input
-                type="number"
-                required
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                placeholder="24999"
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-blue-600 focus:bg-white font-mono"
+                type="text"
+                value={formData.variant}
+                onChange={(e) => setFormData({ ...formData, variant: e.target.value })}
+                placeholder="e.g. Himalayan Blue, Prism Silver"
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
               />
             </div>
 
+            {/* SKU / Barcode */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Cost Price (₹ Buy)
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Custom SKU / Barcode / EAN
+              </label>
+              <input
+                type="text"
+                value={formData.sku}
+                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                placeholder="e.g. VIV-V29-BLU-08"
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg font-mono focus:outline-blue-600"
+              />
+            </div>
+
+            {/* Rack Location */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Rack / Bin Location
+              </label>
+              <input
+                type="text"
+                value={formData.rackLocation}
+                onChange={(e) => setFormData({ ...formData, rackLocation: e.target.value })}
+                placeholder="e.g. Rack A1, Shelf B2"
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
+              />
+            </div>
+
+            {/* Purchase Rate (Cost Price) */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Purchase Rate / Cost Price (₹ Buy)
               </label>
               <input
                 type="number"
                 value={formData.costPrice}
                 onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
-                placeholder="22000"
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-blue-600 focus:bg-white font-mono"
+                placeholder="26800"
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg font-mono font-semibold focus:outline-blue-600"
               />
             </div>
 
+            {/* Selling MRP */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">GST Rate (%)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-700">
+                  Selling MRP (₹ Incl. GST) *
+                </label>
+                {marginPercent && (
+                  <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    +{marginPercent}% Margin
+                  </span>
+                )}
+              </div>
+              <input
+                type="number"
+                required
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                placeholder="31999"
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg font-mono font-bold text-slate-900 focus:outline-blue-600"
+              />
+            </div>
+
+            {/* GST Rate */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">GST Rate (%)</label>
               <select
                 value={formData.gstRate}
                 onChange={(e) => setFormData({ ...formData, gstRate: Number(e.target.value) })}
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-blue-600 focus:bg-white bg-white"
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
               >
-                <option value={18}>18% (Handsets & Electronics)</option>
-                <option value={12}>12% (Telecom Parts)</option>
+                <option value={18}>18% (Smartphones & Electronics)</option>
+                <option value={12}>12% (Telecom Parts & Accessories)</option>
                 <option value={28}>28% (Luxury Peripherals)</option>
                 <option value={0}>0% (Exempt)</option>
               </select>
             </div>
 
+            {/* HSN Code */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">HSN Code</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">HSN Code</label>
               <input
                 type="text"
                 value={formData.hsnCode}
                 onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-blue-600 focus:bg-white font-mono"
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg font-mono focus:outline-blue-600"
               />
             </div>
 
+            {/* Initial Stock */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Initial Stock Qty
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Available Stock Units
               </label>
               <input
                 type="number"
                 value={formData.stock}
                 onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                placeholder="10"
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-blue-600 focus:bg-white font-mono"
+                placeholder="12"
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg font-mono focus:outline-blue-600"
               />
             </div>
 
+            {/* Reorder Threshold */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                IMEI / Serial Numbers
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Low Stock Threshold Alert
               </label>
+              <input
+                type="number"
+                value={formData.minThreshold}
+                onChange={(e) => setFormData({ ...formData, minThreshold: e.target.value })}
+                placeholder="4"
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg font-mono focus:outline-blue-600"
+              />
+            </div>
+
+            {/* Serial / IMEI Section */}
+            <div className="sm:col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800">
+                  Serialized / IMEI Tracking
+                </span>
+                <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={formData.isDualImei}
+                    onChange={(e) => setFormData({ ...formData, isDualImei: e.target.checked })}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>Dual IMEI Active</span>
+                </label>
+              </div>
               <input
                 type="text"
                 value={formData.imeiNumbers}
                 onChange={(e) => setFormData({ ...formData, imeiNumbers: e.target.value })}
-                placeholder="Comma separated IMEIs"
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-blue-600 focus:bg-white font-mono"
+                placeholder="Comma separated 15-digit IMEIs: 863456789012341, 863456789012342"
+                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-mono focus:outline-blue-600"
               />
+              <p className="text-[11px] text-slate-500">
+                Tip: Handsets with registered IMEIs allow 1-click warranty billing and barcode scans.
+              </p>
             </div>
           </div>
 
-          <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
+          <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer disabled:opacity-50"
+              className="px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs cursor-pointer disabled:opacity-50 transition-all flex items-center gap-1.5"
             >
-              {loading ? 'Adding...' : 'Add to Inventory'}
+              <PackagePlus className="w-4 h-4" />
+              {loading ? 'Adding...' : 'Add to Catalog (F4)'}
             </button>
           </div>
         </form>

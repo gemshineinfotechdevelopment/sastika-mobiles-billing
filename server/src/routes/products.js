@@ -40,11 +40,32 @@ router.get('/:id', (req, res) => {
 
 // POST add new product to inventory
 router.post('/', (req, res) => {
-  const { name, category, brand, model, price, costPrice, gstRate, hsnCode, stock, imeiNumbers } = req.body;
+  const {
+    name,
+    category,
+    brand,
+    model,
+    price,
+    costPrice,
+    gstRate,
+    hsnCode,
+    stock,
+    imeiNumbers,
+    sku,
+    variant,
+    rackLocation,
+    minThreshold,
+    isDualImei,
+    statusTag,
+  } = req.body;
 
   if (!name || !price) {
     return res.status(400).json({ success: false, message: 'Name and price are required' });
   }
+
+  const cp = Number(costPrice) || 0;
+  const sp = Number(price);
+  const margin = cp > 0 ? Number((((sp - cp) / cp) * 100).toFixed(1)) : 0;
 
   const newProduct = {
     id: `prod-${Date.now()}`,
@@ -52,20 +73,73 @@ router.post('/', (req, res) => {
     category: category || 'Smartphones',
     brand: brand || '',
     model: model || '',
-    price: Number(price),
-    costPrice: Number(costPrice) || 0,
+    variant: variant || '',
+    sku: sku || `SKU-${Date.now().toString().slice(-6)}`,
+    price: sp,
+    costPrice: cp,
+    margin,
     gstRate: Number(gstRate) || 18,
     hsnCode: hsnCode || '85171300',
     stock: Number(stock) || 0,
+    minThreshold: Number(minThreshold) || 4,
+    rackLocation: rackLocation || 'Main Display',
+    isDualImei: Boolean(isDualImei),
+    statusTag: statusTag || '',
     imeiNumbers: Array.isArray(imeiNumbers) ? imeiNumbers : []
   };
 
-  products.push(newProduct);
+  products.unshift(newProduct);
 
   res.status(201).json({
     success: true,
     message: 'Product added to inventory',
     product: newProduct
+  });
+});
+
+// PUT update existing product
+router.put('/:id', (req, res) => {
+  const index = products.findIndex(p => p.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ success: false, message: 'Product not found' });
+  }
+
+  const existing = products[index];
+  const updates = req.body;
+
+  const updated = {
+    ...existing,
+    ...updates,
+    price: updates.price !== undefined ? Number(updates.price) : existing.price,
+    costPrice: updates.costPrice !== undefined ? Number(updates.costPrice) : existing.costPrice,
+    stock: updates.stock !== undefined ? Number(updates.stock) : existing.stock,
+  };
+
+  if (updated.costPrice > 0 && updated.price > 0) {
+    updated.margin = Number((((updated.price - updated.costPrice) / updated.costPrice) * 100).toFixed(1));
+  }
+
+  products[index] = updated;
+
+  res.json({
+    success: true,
+    message: 'Product updated successfully',
+    product: updated
+  });
+});
+
+// DELETE product
+router.delete('/:id', (req, res) => {
+  const index = products.findIndex(p => p.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ success: false, message: 'Product not found' });
+  }
+
+  const deleted = products.splice(index, 1)[0];
+  res.json({
+    success: true,
+    message: 'Product removed from catalog',
+    product: deleted
   });
 });
 

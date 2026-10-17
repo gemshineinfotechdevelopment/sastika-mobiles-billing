@@ -16,14 +16,15 @@ import { AddProductModal } from './components/modals/AddProductModal';
 import { AddCustomerModal } from './components/modals/AddCustomerModal';
 import { api } from './services/api';
 import type { Bill, HealthResponse, Product } from './types';
+import { INITIAL_PRODUCTS } from './data/initialProducts';
 import { AlertCircle, X } from 'lucide-react';
 import './App.css';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+  const [activeTab, setActiveTab] = useState<NavTab>('products');
   const [serverHealth, setServerHealth] = useState<HealthResponse | null>(null);
   const [serverLoading, setServerLoading] = useState(false);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [bills, setBills] = useState<Bill[]>([]);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
@@ -50,8 +51,12 @@ export function App() {
         api.getProducts(),
         api.getBills(),
       ]);
-      setProducts(prodsRes.products || []);
-      setBills(billsRes.bills || []);
+      if (prodsRes.products && prodsRes.products.length > 0) {
+        setProducts(prodsRes.products);
+      }
+      if (billsRes.bills) {
+        setBills(billsRes.bills);
+      }
     } catch (err) {
       console.warn('Initial data load failed (backend might not be running yet):', err);
     }
@@ -62,12 +67,15 @@ export function App() {
     loadData();
   }, []);
 
-  // Keyboard shortcut listener: F2 triggers "New Bill"
+  // Keyboard shortcut listener: F2 triggers "New Bill", F4 triggers "Add Product"
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F2') {
         e.preventDefault();
         setActiveTab('billing');
+      } else if (e.key === 'F4') {
+        e.preventDefault();
+        setShowAddProductModal(true);
       }
     };
     window.addEventListener('keydown', handleKeyDown);

@@ -10,6 +10,17 @@ export interface Product {
   hsnCode: string;
   stock: number;
   imeiNumbers?: string[];
+  sku?: string;
+  variant?: string;
+  rackLocation?: string;
+  ean?: string;
+  isDualImei?: boolean;
+  minThreshold?: number;
+  imageUrl?: string;
+  margin?: number;
+  roiBadge?: string;
+  statusTag?: string;
+  series?: string;
 }
 
 export interface Customer {

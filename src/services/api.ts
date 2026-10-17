@@ -38,6 +38,24 @@ export const api = {
     return res.json();
   },
 
+  async updateProduct(id: string, updates: Partial<Product>): Promise<{ success: boolean; product: Product }> {
+    const res = await fetch(`${API_BASE}/products/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw new Error('Failed to update product');
+    return res.json();
+  },
+
+  async deleteProduct(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${API_BASE}/products/${id}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to delete product');
+    return res.json();
+  },
+
   // Customers
   async getCustomers(search?: string): Promise<{ customers: Customer[]; count: number }> {
     const params = new URLSearchParams();
