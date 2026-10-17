@@ -30,6 +30,16 @@ export interface Customer {
   email?: string;
   address?: string;
   gstin?: string;
+  tier?: 'VIP MEMBER' | 'REGULAR' | 'KHATA RISK';
+  khataBalance?: number;
+  khataStatus?: 'settled' | 'pending' | 'risk';
+  dueText?: string;
+  lifetimeSales?: number;
+  billsCount?: number;
+  lastBillDate?: string;
+  loyaltyPoints?: number;
+  avatarBg?: string;
+  initials?: string;
 }
 
 export interface BillItem {
@@ -77,4 +87,53 @@ export interface HealthResponse {
     gstin: string;
     phone: string;
   };
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  email?: string;
+  gstin: string;
+  contactPerson?: string;
+  category?: string;
+  totalPurchases?: number;
+  balanceDue?: number;
+}
+
+export interface PurchaseBillItem {
+  name: string;
+  category?: string;
+  quantity: number;
+  unitCost: number;
+  gstRate: number;
+  taxableAmount: number;
+  totalAmount: number;
+  imeiNumbers?: string[];
+  isBarcoded?: boolean;
+}
+
+export interface PurchaseBill {
+  id: string;
+  supplierInvoiceNumber: string;
+  date: string;
+  supplier: {
+    name: string;
+    address: string;
+    phone: string;
+    gstin: string;
+  };
+  itemsSummary: string;
+  unitsCount: number;
+  imeiLoggedCount?: number;
+  isBarcoded?: boolean;
+  totalAmount: number;
+  paidAmount: number;
+  balanceDue: number;
+  dueNotice?: string;
+  paymentStatus: 'PAID FULL' | 'PARTIAL DUE' | 'UNPAID';
+  stockSyncStatus: 'Verified' | 'Pending';
+  taxAuditStatus?: string;
+  items?: PurchaseBillItem[];
 }

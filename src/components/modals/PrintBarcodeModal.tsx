@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Printer, Check } from 'lucide-react';
+import { X, Printer } from 'lucide-react';
 import type { Product } from '../../types';
 
 interface PrintBarcodeModalProps {

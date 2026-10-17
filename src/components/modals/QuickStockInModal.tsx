@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Scan, Check, Plus, Package } from 'lucide-react';
+import { X, Scan, Check, Plus } from 'lucide-react';
 import type { Product } from '../../types';
 import { api } from '../../services/api';
 
@@ -50,7 +50,7 @@ export const QuickStockInModal: React.FC<QuickStockInModalProps> = ({
     }
 
     const imeiList = newImeis
-      ? newImeis.split(',').map((s) => s.trim()).filter(Boolean)
+      ? newImeis.split(',').map((s: string) => s.trim()).filter(Boolean)
       : [];
 
     const updatedStock = activeProd.stock + qty;

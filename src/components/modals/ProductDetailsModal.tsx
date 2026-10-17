@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Smartphone, MapPin, Barcode, ShieldCheck, Tag, Copy, Check, Edit2, Printer } from 'lucide-react';
+import { X, Smartphone, MapPin, Barcode, Tag, Copy, Check, Edit2, Printer } from 'lucide-react';
 import type { Product } from '../../types';
 
 interface ProductDetailsModalProps {

@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Search,
-  Plus,
   Download,
   Scan,
   CreditCard,
@@ -20,7 +19,6 @@ import {
   Shield,
   Layers,
   ArrowRight,
-  Sparkles,
 } from 'lucide-react';
 import type { Product } from '../types';
 import { AddProductModal } from './modals/AddProductModal';

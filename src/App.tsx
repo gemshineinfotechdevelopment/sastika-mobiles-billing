@@ -21,7 +21,7 @@ import { AlertCircle, X } from 'lucide-react';
 import './App.css';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<NavTab>('products');
+  const [activeTab, setActiveTab] = useState<NavTab>('purchases');
   const [serverHealth, setServerHealth] = useState<HealthResponse | null>(null);
   const [serverLoading, setServerLoading] = useState(false);
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
