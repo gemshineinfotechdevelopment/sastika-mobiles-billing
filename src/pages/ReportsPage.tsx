@@ -1,127 +1,913 @@
-import React from 'react';
-import { Download } from 'lucide-react';
-import type { Bill } from '../types';
+import React, { useState, useEffect } from 'react';
+import {
+  FileText,
+  FileSpreadsheet,
+  Printer,
+  TrendingUp,
+  Receipt,
+  Calendar,
+  Store,
+  CheckCircle2,
+  AlertTriangle,
+  ShieldCheck,
+  Smartphone,
+  Zap,
+  Headphones,
+  Shield,
+  Watch,
+  ArrowRight,
+  X,
+  Send,
+  PieChart,
+} from 'lucide-react';
+import type { Bill, Product } from '../types';
+import type { NavTab } from '../components/Sidebar';
 
 interface ReportsPageProps {
-  bills: Bill[];
+  bills?: Bill[];
+  products?: Product[];
+  onNavigateTab?: (tab: NavTab) => void;
 }
 
-export const ReportsPage: React.FC<ReportsPageProps> = ({ bills }) => {
-  const totalGross = bills.reduce((acc, b) => acc + (b.grandTotal || 0), 0) + 842300;
-  const totalTaxCollected = bills.reduce((acc, b) => acc + (b.totalTax || 0), 0) + 7425;
+type DateRange = 'today' | 'week' | 'month' | 'quarter' | 'custom';
+
+interface CategoryReport {
+  id: string;
+  name: string;
+  subtext: string;
+  icon: React.ComponentType<{ className?: string }>;
+  isStarMargin?: boolean;
+  unitsSold: number;
+  revenue: number;
+  cogs: number;
+  grossProfit: number;
+  marginPercent: number;
+  contributionPercent: number;
+}
+
+interface ReorderItem {
+  id: string;
+  name: string;
+  subtext: string;
+  rate: number;
+  availUnits: number;
+  minSafe: number;
+  isUrgent?: boolean;
+}
+
+export const ReportsPage: React.FC<ReportsPageProps> = ({
+  onNavigateTab,
+}) => {
+  const [selectedRange, setSelectedRange] = useState<DateRange>('month');
+  const [showCustomDateModal, setShowCustomDateModal] = useState(false);
+  const [customStartDate, setCustomStartDate] = useState('2024-10-01');
+  const [customEndDate, setCustomEndDate] = useState('2024-10-24');
+
+  // PO Reorder Modal state
+  const [reorderModalItem, setReorderModalItem] = useState<ReorderItem | null>(null);
+  const [reorderQuantity, setReorderQuantity] = useState(10);
+  const [reorderSuccessMsg, setReorderSuccessMsg] = useState<string | null>(null);
+
+  // Keyboard shortcut listener for Ctrl+P / Cmd+P
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Category breakdown data matching the exact screenshot
+  const categoryData: CategoryReport[] = [
+    {
+      id: 'cat-1',
+      name: 'Smartphones',
+      subtext: 'Vivo, Redmi, Samsung, OnePlus',
+      icon: Smartphone,
+      unitsSold: 42,
+      revenue: 684000,
+      cogs: 568000,
+      grossProfit: 116000,
+      marginPercent: 16.9,
+      contributionPercent: 54.8,
+    },
+    {
+      id: 'cat-2',
+      name: 'Fast Chargers & Adapters',
+      subtext: 'Apple 20W, Mi SonicCharge, Type-C Cables',
+      icon: Zap,
+      unitsSold: 98,
+      revenue: 168400,
+      cogs: 108200,
+      grossProfit: 60200,
+      marginPercent: 35.7,
+      contributionPercent: 13.5,
+    },
+    {
+      id: 'cat-3',
+      name: 'TWS Earbuds & Neckbands',
+      subtext: 'boAt Airdopes, Noise Buds, OnePlus Z2',
+      icon: Headphones,
+      unitsSold: 74,
+      revenue: 142800,
+      cogs: 88400,
+      grossProfit: 54400,
+      marginPercent: 38.1,
+      contributionPercent: 11.4,
+    },
+    {
+      id: 'cat-4',
+      name: 'Screen Protectors & Covers',
+      subtext: 'Super D 9H Matte, Silicon Smoked Cases',
+      icon: Shield,
+      isStarMargin: true,
+      unitsSold: 164,
+      revenue: 98400,
+      cogs: 24600,
+      grossProfit: 73800,
+      marginPercent: 75.0,
+      contributionPercent: 7.9,
+    },
+    {
+      id: 'cat-5',
+      name: 'Smartwatches & Bands',
+      subtext: 'Noise ColorFit Icon 2, Fire-Boltt Phoenix',
+      icon: Watch,
+      unitsSold: 34,
+      revenue: 154600,
+      cogs: 103200,
+      grossProfit: 51400,
+      marginPercent: 33.2,
+      contributionPercent: 12.4,
+    },
+  ];
+
+  // Stock Reorder Critical SKUs matching the screenshot
+  const reorderAlerts: ReorderItem[] = [
+    {
+      id: 'reorder-1',
+      name: 'Samsung Galaxy M34 5G',
+      subtext: 'Prism Silver | Rate: ₹14,900',
+      rate: 14900,
+      availUnits: 2,
+      minSafe: 5,
+    },
+    {
+      id: 'reorder-2',
+      name: 'Apple 20W USB-C Adapter',
+      subtext: 'Original Retail Box | Rate: ₹1,320',
+      rate: 1320,
+      availUnits: 3,
+      minSafe: 10,
+    },
+    {
+      id: 'reorder-3',
+      name: 'boAt Rockerz 255 Pro+',
+      subtext: 'Active Teal | Rate: ₹850',
+      rate: 850,
+      availUnits: 4,
+      minSafe: 8,
+    },
+    {
+      id: 'reorder-4',
+      name: 'Redmi Note 13 5G',
+      subtext: 'Gold 128GB | Rate: ₹15,200',
+      rate: 15200,
+      availUnits: 1,
+      minSafe: 4,
+      isUrgent: true,
+    },
+  ];
+
+  // Consolidated row values
+  const consolidated = {
+    unitsSold: 412,
+    revenue: 1248200,
+    cogs: 892400,
+    grossProfit: 355800,
+    marginPercent: 28.5,
+    contributionPercent: 100.0,
+  };
+
+  // Export to Excel / CSV
+  const handleExportExcel = () => {
+    const csvContent = [
+      ['Sastika Mobiles - Category Sales & Margin Breakdown (Oct 2024)'],
+      ['Generated on', new Date().toLocaleString('en-IN')],
+      [],
+      ['Category', 'Units Sold', 'Revenue (INR)', 'COGS (INR)', 'Gross Profit (INR)', 'Margin %', 'Contribution %'],
+      ...categoryData.map((c) => [
+        `"${c.name}"`,
+        c.unitsSold,
+        c.revenue,
+        c.cogs,
+        c.grossProfit,
+        `${c.marginPercent}%`,
+        `${c.contributionPercent}%`,
+      ]),
+      [],
+      [
+        'TOTAL CONSOLIDATED',
+        consolidated.unitsSold,
+        consolidated.revenue,
+        consolidated.cogs,
+        consolidated.grossProfit,
+        `${consolidated.marginPercent}%`,
+        '100.0%',
+      ],
+      [],
+      ['GST & Tax Compliance Audit (Q3)'],
+      ['Taxable Turnover', 1057796],
+      ['CGST Collected (9%)', 95202],
+      ['SGST Collected (9%)', 95202],
+      ['Total GST Collected', 190404],
+      ['Eligible Input Tax (ITC)', -82800],
+      ['Net Tax Payable', 107604],
+    ]
+      .map((row) => row.join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Sastika_Mobiles_Report_Oct2024.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Trigger Purchase Order confirmation
+  const handleSendPO = () => {
+    if (!reorderModalItem) return;
+    setReorderSuccessMsg(
+      `PO generated successfully for ${reorderQuantity} units of ${reorderModalItem.name}! Supplier order dispatched.`
+    );
+    setTimeout(() => {
+      setReorderModalItem(null);
+      setReorderSuccessMsg(null);
+    }, 2200);
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+    <div className="space-y-6 pb-12">
+      {/* 1. Breadcrumbs, Header & Filter Controls */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Financial & GST Reports</h1>
-          <p className="text-xs text-slate-500">
-            Tax compliance reports, GSTR-1 summary and sales turnover breakdown
-          </p>
+          {/* Breadcrumbs matching image */}
+          <div className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider uppercase mb-1 whitespace-nowrap overflow-x-auto">
+            <span className="text-slate-500">Retail OS</span>
+            <span className="text-slate-400">&gt;</span>
+            <span className="text-slate-500">Business Intelligence</span>
+            <span className="text-slate-400">&gt;</span>
+            <span className="text-blue-600 font-extrabold">Reports &amp; Financial Audit</span>
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              Business Reports &amp; Financial Analytics
+            </h1>
+            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/70 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+              FY 2024 - 2025 (Q3 Active)
+            </span>
+          </div>
         </div>
-      </div>
 
-      <div className="space-y-6">
-        <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">Tax Overview (Current Month)</h2>
-              <p className="text-xs text-slate-500">
-                Official GST calculation for Sastika Mobiles (33AAAAA0000A1Z5)
-              </p>
-            </div>
-
+        {/* Action Controls & Filters */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
+          {/* Date Range Selector Pills */}
+          <div className="inline-flex items-center p-1 bg-white border border-slate-200 rounded-xl shadow-2xs text-xs">
             <button
-              onClick={() => alert('Exporting GSTR-1 JSON and Excel format...')}
-              className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs cursor-pointer active:scale-98"
+              onClick={() => setSelectedRange('today')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                selectedRange === 'today'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
             >
-              <Download className="w-4 h-4" />
-              <span>Download GSTR-1 Excel</span>
+              Today (24 Oct)
+            </button>
+            <button
+              onClick={() => setSelectedRange('week')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                selectedRange === 'week'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              This Week
+            </button>
+            <button
+              onClick={() => setSelectedRange('month')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                selectedRange === 'month'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              This Month (Oct 2024)
+            </button>
+            <button
+              onClick={() => setSelectedRange('quarter')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                selectedRange === 'quarter'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              Quarter 3
+            </button>
+            <button
+              onClick={() => {
+                setSelectedRange('custom');
+                setShowCustomDateModal(true);
+              }}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                selectedRange === 'custom'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              <span>Custom</span>
+              <Calendar className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          {/* Financial Highlights */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
-              <p className="text-xs font-semibold text-slate-500">Total Store Revenue (MTD)</p>
-              <p className="text-2xl font-black text-slate-900 font-mono mt-1">₹{totalGross.toLocaleString('en-IN')}</p>
-              <p className="text-[11px] text-emerald-600 font-bold mt-1">↑ 18.4% vs last month</p>
-            </div>
+          {/* Action Buttons: Export PDF, Excel, Print */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl shadow-2xs transition-all cursor-pointer"
+              title="Export Report to PDF"
+            >
+              <FileText className="w-3.5 h-3.5 text-rose-500" />
+              <span>Export PDF</span>
+            </button>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
-              <p className="text-xs font-semibold text-slate-500">Total Output GST Collected</p>
-              <p className="text-2xl font-black text-slate-900 font-mono mt-1">
-                ₹{totalTaxCollected.toLocaleString('en-IN')}
-              </p>
-              <p className="text-[11px] text-slate-500 mt-1">CGST 9% + SGST 9% (18% bracket)</p>
-            </div>
+            <button
+              onClick={handleExportExcel}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl shadow-2xs transition-all cursor-pointer"
+              title="Download Excel spreadsheet"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Excel (XLSX)</span>
+            </button>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
-              <p className="text-xs font-semibold text-slate-500">Average Bill Size</p>
-              <p className="text-2xl font-black text-slate-900 font-mono mt-1">₹14,580</p>
-              <p className="text-[11px] text-blue-600 font-medium mt-1">Driven by 5G Handset upgrades</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Tax Breakdown Table */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
-          <h3 className="text-sm font-bold text-slate-900 mb-3">HSN / Tax Slab Breakdown</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px]">
-                  <th className="py-2.5 px-3">HSN CODE</th>
-                  <th className="py-2.5 px-3">CATEGORY DESCRIPTION</th>
-                  <th className="py-2.5 px-3 text-center">GST RATE</th>
-                  <th className="py-2.5 px-3 text-right">TAXABLE VALUE</th>
-                  <th className="py-2.5 px-3 text-right">CGST</th>
-                  <th className="py-2.5 px-3 text-right">SGST</th>
-                  <th className="py-2.5 px-3 text-right">TOTAL TAX</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-mono">
-                <tr>
-                  <td className="py-3 px-3 font-bold text-blue-600">85171300</td>
-                  <td className="py-3 px-3 font-sans font-medium text-slate-800">Smartphones & Cellular Phones</td>
-                  <td className="py-3 px-3 text-center">18%</td>
-                  <td className="py-3 px-3 text-right">₹6,85,000</td>
-                  <td className="py-3 px-3 text-right">₹61,650</td>
-                  <td className="py-3 px-3 text-right">₹61,650</td>
-                  <td className="py-3 px-3 text-right font-bold text-slate-900">₹1,23,300</td>
-                </tr>
-                <tr>
-                  <td className="py-3 px-3 font-bold text-blue-600">85044030</td>
-                  <td className="py-3 px-3 font-sans font-medium text-slate-800">Fast Chargers & Adapters</td>
-                  <td className="py-3 px-3 text-center">18%</td>
-                  <td className="py-3 px-3 text-right">₹48,200</td>
-                  <td className="py-3 px-3 text-right">₹4,338</td>
-                  <td className="py-3 px-3 text-right">₹4,338</td>
-                  <td className="py-3 px-3 text-right font-bold text-slate-900">₹8,676</td>
-                </tr>
-                <tr>
-                  <td className="py-3 px-3 font-bold text-blue-600">85183000</td>
-                  <td className="py-3 px-3 font-sans font-medium text-slate-800">TWS Earbuds & Headsets</td>
-                  <td className="py-3 px-3 text-center">18%</td>
-                  <td className="py-3 px-3 text-right">₹62,100</td>
-                  <td className="py-3 px-3 text-right">₹5,589</td>
-                  <td className="py-3 px-3 text-right">₹5,589</td>
-                  <td className="py-3 px-3 text-right font-bold text-slate-900">₹11,178</td>
-                </tr>
-                <tr>
-                  <td className="py-3 px-3 font-bold text-blue-600">70071900</td>
-                  <td className="py-3 px-3 font-sans font-medium text-slate-800">Tempered Screen Protectors</td>
-                  <td className="py-3 px-3 text-center">18%</td>
-                  <td className="py-3 px-3 text-right">₹47,000</td>
-                  <td className="py-3 px-3 text-right">₹4,230</td>
-                  <td className="py-3 px-3 text-right">₹4,230</td>
-                  <td className="py-3 px-3 text-right font-bold text-slate-900">₹8,460</td>
-                </tr>
-              </tbody>
-            </table>
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-xs transition-all cursor-pointer"
+              title="Print Summary (Ctrl+P)"
+            >
+              <Printer className="w-3.5 h-3.5 text-white" />
+              <span>Print Summary</span>
+              <span className="px-1 py-0.2 bg-blue-500 text-white text-[10px] font-mono rounded">
+                Ctrl+P
+              </span>
+            </button>
           </div>
         </div>
       </div>
+
+      {/* 2. Top 4 Metric KPI Cards (Exact match to screenshot) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: TODAY'S SALES */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase block">
+                  Today's Sales
+                </span>
+                <div className="flex items-baseline gap-1 mt-1">
+                  <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-sans">
+                    ₹84,650
+                  </span>
+                </div>
+              </div>
+              <div className="p-2 rounded-xl bg-blue-50 text-blue-600 shrink-0">
+                <Receipt className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-2">
+              <span className="text-emerald-600 font-bold text-xs inline-flex items-center gap-0.5">
+                <TrendingUp className="w-3.5 h-3.5" />
+                +14.2% <span className="text-slate-400 font-normal ml-0.5">vs yesterday</span>
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 mt-4 border-t border-slate-100/90 text-xs text-slate-600">
+            <span className="font-medium">28 Invoices</span>
+            <span className="font-bold text-slate-800">Avg ₹3,023</span>
+          </div>
+        </div>
+
+        {/* Card 2: MONTHLY SALES (OCT) */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase block">
+                  Monthly Sales <span className="text-slate-400 text-[10px]">(OCT)</span>
+                </span>
+                <div className="flex items-baseline gap-1 mt-1">
+                  <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-sans">
+                    ₹12,48,200
+                  </span>
+                </div>
+              </div>
+              <div className="p-2 rounded-xl bg-blue-50 text-blue-600 shrink-0">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-2">
+              <span className="text-emerald-600 font-bold text-xs inline-flex items-center gap-0.5">
+                <TrendingUp className="w-3.5 h-3.5" />
+                +18.5% <span className="text-slate-400 font-normal ml-0.5">vs Sep (₹10.5L)</span>
+              </span>
+            </div>
+          </div>
+          <div className="pt-3 mt-3 border-t border-slate-100/90">
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <span className="text-slate-500 font-medium">Target: ₹15.00L</span>
+              <span className="text-blue-600 font-bold">83.2%</span>
+            </div>
+            <div className="w-full h-1.5 bg-blue-100 rounded-full overflow-hidden">
+              <div
+                className="bg-blue-600 h-full rounded-full transition-all duration-700"
+                style={{ width: '83.2%' }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: PURCHASES (OCT) */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase block">
+                  Purchases <span className="text-slate-400 text-[10px]">(OCT)</span>
+                </span>
+                <div className="flex items-baseline gap-1 mt-1">
+                  <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-sans">
+                    ₹8,92,400
+                  </span>
+                </div>
+              </div>
+              <div className="p-2 rounded-xl bg-blue-50 text-blue-600 shrink-0">
+                <Calendar className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-2">
+              <span className="text-emerald-700 font-semibold text-xs inline-flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                24 inward consignments
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 mt-4 border-t border-slate-100/90 text-xs">
+            <span className="text-slate-500 font-medium">Supplier Dues</span>
+            <span className="px-2 py-0.5 rounded-lg bg-rose-50 text-rose-600 font-bold border border-rose-100">
+              ₹1,14,500
+            </span>
+          </div>
+        </div>
+
+        {/* Card 4: STOCK VALUATION */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase block">
+                  Stock Valuation
+                </span>
+                <div className="flex items-baseline gap-1 mt-1">
+                  <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-sans">
+                    ₹14,85,250
+                  </span>
+                </div>
+              </div>
+              <div className="p-2 rounded-xl bg-blue-50 text-blue-600 shrink-0">
+                <Store className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-slate-500">
+              <span className="font-bold text-slate-700">348 Total units</span> across 52 SKUs
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 mt-4 border-t border-slate-100/90 text-xs text-slate-600">
+            <span className="font-medium">42 Phones</span>
+            <span className="font-medium">306 Accessories</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Main Split Section: Left Table (2/3) & Right Audit Panel (1/3) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left 2 Cols: Category Sales & Margin Breakdown */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden flex flex-col justify-between">
+          <div>
+            {/* Table Header */}
+            <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <PieChart className="w-4 h-4 text-emerald-600" />
+                  <h2 className="text-base font-extrabold text-slate-900 tracking-tight">
+                    Category Sales &amp; Margin Breakdown
+                  </h2>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Financial contribution and cost of goods sold across store inventory groups
+                </p>
+              </div>
+
+              {/* Green Margin Leader Badge */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shrink-0">
+                <span>Screen Protectors: 75% Gross Margin Leader</span>
+              </div>
+            </div>
+
+            {/* Breakdown Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/70 border-b border-slate-200/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    <th className="py-3 px-4">PRODUCT CATEGORY</th>
+                    <th className="py-3 px-3 text-center">UNITS SOLD</th>
+                    <th className="py-3 px-3 text-right">REVENUE (₹)</th>
+                    <th className="py-3 px-3 text-right">COGS / INWARD (₹)</th>
+                    <th className="py-3 px-3 text-right">GROSS PROFIT (₹)</th>
+                    <th className="py-3 px-3 text-center">MARGIN %</th>
+                    <th className="py-3 px-4 text-left">CONTRIBUTION</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {categoryData.map((cat) => {
+                    const CategoryIcon = cat.icon;
+                    return (
+                      <tr key={cat.id} className="hover:bg-slate-50/80 transition-colors">
+                        {/* Category Name & Icons */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`p-2 rounded-xl shrink-0 ${
+                                cat.isStarMargin
+                                  ? 'bg-emerald-50 text-emerald-600'
+                                  : 'bg-blue-50 text-blue-600'
+                              }`}
+                            >
+                              <CategoryIcon className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-slate-900">{cat.name}</span>
+                                {cat.isStarMargin && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider bg-emerald-800 text-emerald-100 uppercase">
+                                    STAR MARGIN
+                                  </span>
+                                )}
+                              </div>
+                              <span className="block text-[11px] text-slate-400 mt-0.5">
+                                {cat.subtext}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Units Sold */}
+                        <td className="py-3.5 px-3 text-center font-bold text-slate-800">
+                          {cat.unitsSold}
+                        </td>
+
+                        {/* Revenue */}
+                        <td className="py-3.5 px-3 text-right font-extrabold text-slate-900 font-sans">
+                          ₹{cat.revenue.toLocaleString('en-IN')}
+                        </td>
+
+                        {/* COGS */}
+                        <td className="py-3.5 px-3 text-right text-slate-600 font-medium font-sans">
+                          ₹{cat.cogs.toLocaleString('en-IN')}
+                        </td>
+
+                        {/* Gross Profit */}
+                        <td className="py-3.5 px-3 text-right font-bold text-emerald-600 font-sans">
+                          ₹{cat.grossProfit.toLocaleString('en-IN')}
+                        </td>
+
+                        {/* Margin % */}
+                        <td className="py-3.5 px-3 text-center">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded font-bold text-[11px] ${
+                              cat.marginPercent >= 50
+                                ? 'bg-emerald-100 text-emerald-800 font-extrabold'
+                                : 'text-emerald-700'
+                            }`}
+                          >
+                            {cat.marginPercent.toFixed(1)}%
+                          </span>
+                        </td>
+
+                        {/* Contribution % with mini progress bar */}
+                        <td className="py-3.5 px-4 min-w-[130px]">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-700 text-[11px] w-9">
+                              {cat.contributionPercent.toFixed(1)}%
+                            </span>
+                            <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className="bg-blue-600 h-full rounded-full"
+                                style={{ width: `${cat.contributionPercent}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+
+                {/* Total Consolidated Row matching screenshot */}
+                <tfoot>
+                  <tr className="bg-blue-50/60 border-t-2 border-slate-200/90 font-bold text-xs text-slate-900">
+                    <td className="py-3 px-4 uppercase text-[11px] tracking-wider text-slate-800">
+                      TOTAL CONSOLIDATED (OCT 1 - 24)
+                    </td>
+                    <td className="py-3 px-3 text-center font-extrabold text-slate-900">
+                      {consolidated.unitsSold} Units
+                    </td>
+                    <td className="py-3 px-3 text-right font-black text-blue-700">
+                      ₹{consolidated.revenue.toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-3 px-3 text-right font-bold text-slate-700">
+                      ₹{consolidated.cogs.toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-3 px-3 text-right font-black text-emerald-700">
+                      ₹{consolidated.grossProfit.toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-3 px-3 text-center font-bold text-slate-800">
+                      {consolidated.marginPercent}%
+                    </td>
+                    <td className="py-3 px-4 font-bold text-slate-800 text-[11px]">
+                      {consolidated.contributionPercent.toFixed(1)}%
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Right 1 Col: Stock Reorder Alerts & GST Compliance */}
+        <div className="space-y-6 flex flex-col justify-between">
+          {/* Card A: Stock Reorder Alerts */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-rose-500" />
+                <h3 className="text-sm font-extrabold text-slate-900">Stock Reorder Alerts</h3>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                4 SKUs Critical
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1 mb-3">
+              Immediate wholesale replenishment needed before weekend peak
+            </p>
+
+            {/* List of 4 Critical SKUs */}
+            <div className="divide-y divide-slate-100">
+              {reorderAlerts.map((item) => (
+                <div key={item.id} className="py-3 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-900 truncate">{item.name}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">{item.subtext}</p>
+                    <div className="mt-1 flex items-center gap-1 text-[11px]">
+                      <span className="font-extrabold text-rose-600">
+                        Avail: {item.availUnits} {item.isUrgent ? 'unit only!' : 'units'}
+                      </span>
+                      <span className="text-slate-400">(Min safe: {item.minSafe})</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setReorderModalItem(item);
+                      setReorderQuantity(item.minSafe * 2);
+                    }}
+                    className="shrink-0 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg shadow-xs transition-colors cursor-pointer"
+                  >
+                    PO Reorder
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* View All SKUs Link */}
+            <div className="pt-3 mt-1 border-t border-slate-100 text-center">
+              <button
+                onClick={() => {
+                  if (onNavigateTab) onNavigateTab('products');
+                }}
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 inline-flex items-center gap-1 cursor-pointer"
+              >
+                <span>View All 52 Catalog SKUs in Products</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Card B: GST & Tax Compliance (Q3) */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs">
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-extrabold text-slate-900">
+                  GST &amp; Tax Compliance (Q3)
+                </h3>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                GSTR-1 Ready
+              </span>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between items-center text-slate-600">
+                <span>Taxable Turnover</span>
+                <span className="font-bold text-slate-800">₹10,57,796</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-600">
+                <span>CGST Collected (9%)</span>
+                <span className="font-bold text-slate-800">₹95,202</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-600">
+                <span>SGST Collected (9%)</span>
+                <span className="font-bold text-slate-800">₹95,202</span>
+              </div>
+
+              <div className="border-t border-slate-100 pt-2 flex justify-between items-center text-slate-900 font-bold">
+                <span>Total GST Collected</span>
+                <span>₹1,90,404</span>
+              </div>
+
+              <div className="flex justify-between items-center text-slate-600">
+                <span className="flex items-center gap-1 text-slate-500">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  Eligible Input Tax (ITC)
+                </span>
+                <span className="font-bold text-slate-700">- ₹82,800</span>
+              </div>
+
+              <div className="border-t border-slate-200/80 pt-2.5 flex justify-between items-center text-slate-900">
+                <span className="font-extrabold text-slate-900">Net Tax Payable</span>
+                <span className="text-base font-black text-rose-600 font-sans">₹1,07,604</span>
+              </div>
+            </div>
+
+            <div className="pt-3 mt-3 border-t border-slate-100/90 flex items-center justify-between text-[11px]">
+              <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Reconciled with GSTR-2B
+              </span>
+              <span className="text-slate-400">Due: 20 Nov 2024</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Reorder Modal Dialog */}
+      {reorderModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Create Purchase Reorder</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Send immediate wholesale stock indent to authorized distributor
+                </p>
+              </div>
+              <button
+                onClick={() => setReorderModalItem(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {reorderSuccessMsg ? (
+              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{reorderSuccessMsg}</span>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs">
+                  <p className="font-bold text-slate-900">{reorderModalItem.name}</p>
+                  <p className="text-slate-500 mt-0.5">{reorderModalItem.subtext}</p>
+                  <div className="mt-2 flex items-center justify-between text-[11px]">
+                    <span className="text-rose-600 font-bold">
+                      Current Stock: {reorderModalItem.availUnits} units
+                    </span>
+                    <span className="text-slate-500">Min Buffer: {reorderModalItem.minSafe} units</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Order Quantity (Units)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={reorderQuantity}
+                    onChange={(e) => setReorderQuantity(Math.max(1, Number(e.target.value) || 1))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Estimated PO Value:{' '}
+                    <strong className="text-slate-800">
+                      ₹{(reorderQuantity * reorderModalItem.rate).toLocaleString('en-IN')}
+                    </strong>
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => setReorderModalItem(null)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendPO}
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs cursor-pointer"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Dispatch PO Indent</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Custom Date Modal */}
+      {showCustomDateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900">Custom Date Range</h3>
+              <button
+                onClick={() => setShowCustomDateModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">From Date</label>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">To Date</label>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowCustomDateModal(false)}
+                className="px-3.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setShowCustomDateModal(false)}
+                className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs cursor-pointer"
+              >
+                Apply Range
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

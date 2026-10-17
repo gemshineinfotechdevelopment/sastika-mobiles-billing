@@ -59,6 +59,21 @@ export interface Bill {
   grandTotal: number;
   paymentMode: string;
   notes?: string;
+  time?: string;
+  counter?: string;
+  customerType?: 'REGULAR' | 'MEMBER' | 'COUNTER POS' | 'CUSTOMER';
+  status?: 'PAID' | 'PARTIAL' | 'DRAFT' | 'CANCELLED';
+  paidAmount?: number;
+  balanceDue?: number;
+  dueDate?: string;
+  tenderMode?: string;
+  itemSummary?: string;
+  subSummary?: string;
+  isVerified?: boolean;
+  isCancelled?: boolean;
+  voidReason?: string;
+  warningNote?: string;
+  stockRestoredText?: string;
 }
 
 export interface ShopInfo {
