@@ -4,9 +4,23 @@ import { Bill } from '../models/Bill.js';
 import { Supplier } from '../models/Supplier.js';
 import { PurchaseBill } from '../models/PurchaseBill.js';
 import { Settings } from '../models/Settings.js';
+import { User } from '../models/User.js';
 
 export const seedDatabaseIfEmpty = async () => {
   try {
+    // 0. Seed Admin User if missing
+    const adminUser = await User.findOne({ username: 'officetest' });
+    if (!adminUser) {
+      await User.create({
+        username: 'officetest',
+        password: 'admin$123',
+        name: 'Rajesh Kumar',
+        role: 'admin',
+        shopName: 'Sastika Mobiles',
+      });
+      console.log('✅ Seeded default Admin User (officetest)');
+    }
+
     // 1. Seed Settings if empty
     const settingsCount = await Settings.countDocuments();
     if (settingsCount === 0) {

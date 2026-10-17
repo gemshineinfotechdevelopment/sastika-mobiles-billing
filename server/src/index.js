@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
@@ -10,6 +10,7 @@ import { connectDB } from './config/db.js';
 import { seedDatabaseIfEmpty } from './config/seedData.js';
 
 // Route Imports
+import authRouter from './routes/auth.js';
 import billsRouter from './routes/bills.js';
 import productsRouter from './routes/products.js';
 import customersRouter from './routes/customers.js';
@@ -75,6 +76,7 @@ app.get('/api/shop-info', (req, res) => {
 });
 
 // API Routes for all pages
+app.use('/api/auth', authRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/bills', billsRouter);
 app.use('/api/customers', customersRouter);
@@ -103,7 +105,7 @@ app.use((err, req, res, _next) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Sastika Mobiles Billing Server running on http://localhost:${PORT}`);
-  console.log(`🍃 Database: MongoDB (${process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/sastika_mobiles_billing'})`);
+  console.log(`📦 Database: MongoDB (${process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/sastika_mobiles_billing'})`);
   console.log(`☁️ Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? 'Configured' : 'Needs Credentials in .env'}`);
-  console.log(`📡 Health Check: http://localhost:${PORT}/api/health`);
+  console.log(`📋 Health Check: http://localhost:${PORT}/api/health`);
 });

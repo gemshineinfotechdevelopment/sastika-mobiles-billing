@@ -2,13 +2,8 @@ import React, { useState } from 'react';
 import {
   Printer,
   Save,
-  Check,
   Building2,
   Receipt,
-  Smartphone,
-  MapPin,
-  FileText,
-  Sliders,
   CheckCircle2,
 } from 'lucide-react';
 

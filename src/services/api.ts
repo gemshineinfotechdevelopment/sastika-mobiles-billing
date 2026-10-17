@@ -283,6 +283,37 @@ export const api = {
     return res.json();
   },
 
+  // Auth & Admin User
+  async getCurrentUser(): Promise<{
+    success: boolean;
+    user: { username: string; name: string; role: string; shopName?: string };
+  }> {
+    const res = await fetch(`${API_BASE}/auth/me`);
+    if (!res.ok) throw new Error('Failed to fetch user profile');
+    return res.json();
+  },
+
+  async changePassword(
+    newPassword: string,
+    confirmPassword: string,
+    username = 'officetest'
+  ): Promise<{
+    success: boolean;
+    message: string;
+    user: { username: string; name: string; role: string };
+  }> {
+    const res = await fetch(`${API_BASE}/auth/change-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, newPassword, confirmPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to update password');
+    }
+    return data;
+  },
+
   // Cloudinary Image Upload
   async uploadImage(
     file: File,
