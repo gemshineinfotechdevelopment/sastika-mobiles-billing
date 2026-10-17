@@ -186,32 +186,64 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     return sortedProducts.slice(start, start + pageSize);
   }, [sortedProducts, currentPage, pageSize]);
 
-  // Calculate Key Metrics with exact baseline matching reference design
+  // Calculate Key Metrics dynamically from MongoDB Product List
   const totalValuation = useMemo(() => {
-    const calculated = productList.reduce((sum, p) => sum + (p.costPrice || p.price * 0.85) * p.stock, 0);
-    return calculated > 0 ? 1485250 : 1485250;
+    return Math.round(productList.reduce((sum, p) => sum + (p.costPrice || p.price * 0.85) * (p.stock || 0), 0));
   }, [productList]);
 
   const totalUnits = useMemo(() => {
-    return 348;
-  }, []);
+    return productList.reduce((sum, p) => sum + (p.stock || 0), 0);
+  }, [productList]);
 
-  const activeSkusCount = 52;
+  const activeSkusCount = productList.length;
 
   const lowStockCount = useMemo(() => {
-    return 4;
-  }, []);
+    return productList.filter((p) => (p.stock || 0) <= (p.minThreshold || 4)).length;
+  }, [productList]);
+
+  const smartphoneUnits = useMemo(() => {
+    return productList
+      .filter((p) => (p.category || '').toLowerCase().includes('phone'))
+      .reduce((sum, p) => sum + (p.stock || 0), 0);
+  }, [productList]);
 
   const accessoriesUnits = useMemo(() => {
-    return 306;
-  }, []);
+    return Math.max(0, totalUnits - smartphoneUnits);
+  }, [totalUnits, smartphoneUnits]);
 
-  // Quick Select Counts
-  const smartphoneUnits = 42;
-  const chargerUnits = 74;
-  const audioUnits = 58;
-  const protectorUnits = 112;
-  const smartwatchUnits = 22;
+  // Quick Select Counts dynamically calculated
+  const chargerUnits = useMemo(() => {
+    return productList
+      .filter((p) => {
+        const c = (p.category || '').toLowerCase();
+        return c.includes('charger') || c.includes('cable') || c.includes('adapter');
+      })
+      .reduce((sum, p) => sum + (p.stock || 0), 0);
+  }, [productList]);
+
+  const audioUnits = useMemo(() => {
+    return productList
+      .filter((p) => {
+        const c = (p.category || '').toLowerCase();
+        return c.includes('audio') || c.includes('earbud') || c.includes('neckband') || c.includes('headphone');
+      })
+      .reduce((sum, p) => sum + (p.stock || 0), 0);
+  }, [productList]);
+
+  const protectorUnits = useMemo(() => {
+    return productList
+      .filter((p) => {
+        const c = (p.category || '').toLowerCase();
+        return c.includes('protector') || c.includes('tempered') || c.includes('glass') || c.includes('case') || c.includes('cover');
+      })
+      .reduce((sum, p) => sum + (p.stock || 0), 0);
+  }, [productList]);
+
+  const smartwatchUnits = useMemo(() => {
+    return productList
+      .filter((p) => (p.category || '').toLowerCase().includes('watch'))
+      .reduce((sum, p) => sum + (p.stock || 0), 0);
+  }, [productList]);
 
   // Category Icon & Badge Helper
   const getCategoryBadge = (category: string) => {

@@ -82,7 +82,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             Welcome back, Rajesh!
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Here's your shop overview for today, Thursday, Oct 24, 2024
+            Here's your shop overview for today,{' '}
+            {new Date().toLocaleDateString('en-IN', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            })}
           </p>
         </div>
 
@@ -264,7 +270,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               <div>
                 <h2 className="text-base font-bold text-slate-900">Weekly Sales Trend</h2>
                 <p className="text-xs text-slate-500">
-                  Daily store turnover tracking (Current week: Oct 18 - Oct 24)
+                  Daily store turnover tracking (Active 7-day performance)
                 </p>
               </div>
 

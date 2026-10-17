@@ -63,8 +63,10 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
 }) => {
   const [selectedRange, setSelectedRange] = useState<DateRange>('month');
   const [showCustomDateModal, setShowCustomDateModal] = useState(false);
-  const [customStartDate, setCustomStartDate] = useState('2024-10-01');
-  const [customEndDate, setCustomEndDate] = useState('2024-10-24');
+  const [customStartDate, setCustomStartDate] = useState(
+    new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
+  );
+  const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().slice(0, 10));
 
   // Live analytics from MongoDB Express backend
   const [analytics, setAnalytics] = useState<any>(null);
@@ -216,29 +218,30 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
   // KPIs derived dynamically
   const kpis = analytics?.kpis;
   const todayStr = new Date().toISOString().slice(0, 10);
-  const todayBills = bills.filter((b) => (b.date || '').slice(0, 10) === todayStr && !b.isCancelled);
+  const activeBills = bills.filter((b) => !b.isCancelled);
+  const todayBills = activeBills.filter((b) => (b.date || '').slice(0, 10) === todayStr);
   const liveTodayGross =
     todayBills.length > 0
       ? todayBills.reduce((acc, b) => acc + (b.grandTotal || 0), 0)
-      : kpis?.todaySales?.value ?? 84650;
-  const liveTodayInvoices = todayBills.length > 0 ? todayBills.length : kpis?.todaySales?.invoices ?? 28;
+      : (kpis?.todaySales?.value ?? (activeBills.length > 0 ? activeBills.slice(0, 4).reduce((acc, b) => acc + (b.grandTotal || 0), 0) : 0));
+  const liveTodayInvoices = todayBills.length > 0 ? todayBills.length : (kpis?.todaySales?.invoices ?? Math.min(activeBills.length, 4));
   const liveMonthlySales =
-    bills.filter((b) => !b.isCancelled).reduce((acc, b) => acc + (b.grandTotal || 0), 0) ||
-    (kpis?.monthlySales?.value ?? 1248200);
+    activeBills.reduce((acc, b) => acc + (b.grandTotal || 0), 0) ||
+    (kpis?.monthlySales?.value ?? 0);
 
   const totalStockUnits =
     products.reduce((acc, p) => acc + (p.stock || 0), 0) ||
-    (kpis?.stockValuation?.totalUnits ?? 348);
+    (kpis?.stockValuation?.totalUnits ?? 0);
 
   const stockValuation =
     products.reduce((acc, p) => acc + (p.stock || 0) * (p.costPrice || p.price * 0.8), 0) ||
-    (kpis?.stockValuation?.value ?? 1485250);
+    (kpis?.stockValuation?.value ?? 0);
 
   const phonesCount =
     products
       .filter((p) => (p.category || '').toLowerCase().includes('phone'))
       .reduce((acc, p) => acc + (p.stock || 0), 0) ||
-    (kpis?.stockValuation?.phonesCount ?? 42);
+    (kpis?.stockValuation?.phonesCount ?? 0);
   const accessoriesCount = Math.max(0, totalStockUnits - phonesCount);
 
   // Export to Excel / CSV
@@ -373,7 +376,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              Today (24 Oct)
+              Today ({new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })})
             </button>
             <button
               onClick={() => setSelectedRange('week')}
@@ -393,7 +396,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              This Month (Oct 2024)
+              This Month ({new Date().toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })})
             </button>
             <button
               onClick={() => setSelectedRange('quarter')}

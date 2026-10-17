@@ -81,6 +81,35 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     fetchCustomers();
   }, []);
 
+  // Computed live customer statistics
+  const customerStats = useMemo(() => {
+    const totalCount = customers.length;
+    const dueCustomers = customers.filter((c) => (c.khataBalance || 0) > 0);
+    const dueCount = dueCustomers.length;
+    const totalDue = dueCustomers.reduce((acc, c) => acc + (c.khataBalance || 0), 0);
+    const settledCount = customers.filter((c) => (c.khataBalance || 0) === 0).length;
+    const vipCustomers = customers.filter((c) => c.tier === 'VIP MEMBER');
+    const vipCount = vipCustomers.length;
+    const totalLifetimeSales = customers.reduce((acc, c) => acc + (c.lifetimeSales || 0), 0);
+    const avgBasket = totalCount > 0 ? Math.round(totalLifetimeSales / totalCount) : 0;
+    const totalPoints = customers.reduce((acc, c) => acc + (c.loyaltyPoints || 0), 0);
+    const overdueAmount = dueCustomers
+      .filter((c) => (c.khataBalance || 0) > 5000)
+      .reduce((acc, c) => acc + (c.khataBalance || 0), 0);
+
+    return {
+      totalCount,
+      dueCount,
+      totalDue,
+      settledCount,
+      vipCount,
+      totalLifetimeSales,
+      avgBasket,
+      totalPoints,
+      overdueAmount,
+    };
+  }, [customers]);
+
   // Filter & Search
   const filteredCustomers = useMemo(() => {
     return customers.filter((cust) => {
@@ -325,16 +354,18 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           </div>
           <div>
             <div className="flex items-baseline gap-2.5">
-              <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">248</span>
+              <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                {customerStats.totalCount}
+              </span>
               <span className="inline-flex items-center text-[10px] sm:text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                +18 this month
+                Active in DB
               </span>
             </div>
           </div>
           <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
-            <span>Active counters: 3</span>
+            <span>{customerStats.vipCount} VIP patrons</span>
             <span className="flex items-center gap-1 font-medium text-slate-600">
-              <span className="text-emerald-500 font-bold">✓</span> 99.2% phone verified
+              <span className="text-emerald-500 font-bold">✓</span> 100% phone verified
             </span>
           </div>
         </div>
@@ -346,31 +377,37 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               TOTAL KHATA BALANCE DUE
             </span>
             <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-red-100 text-red-700 border border-red-200">
-              14 PENDING
+              {customerStats.dueCount} PENDING
             </span>
           </div>
-          <div className="flex items-center justify-between gap-1.5">
-            <div>
-              <div className="flex items-baseline gap-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-baseline gap-1 flex-wrap">
                 <span className="text-2xl sm:text-3xl font-extrabold text-red-700 font-mono tracking-tight">
-                  ₹42,650
+                  ₹{customerStats.totalDue.toLocaleString('en-IN')}
                 </span>
-                <span className="text-[11px] font-semibold text-slate-400">/ 14 accounts</span>
+                <span className="text-[11px] font-semibold text-slate-400">
+                  / {customerStats.dueCount} {customerStats.dueCount === 1 ? 'account' : 'accounts'}
+                </span>
               </div>
             </div>
             <button
               onClick={() => {
-                const dueCust = customers.find((c) => (c.khataBalance || 0) > 0) || customers[2];
-                setSelectedCustomerForPayment(dueCust);
+                const dueCust = customers.find((c) => (c.khataBalance || 0) > 0) || customers[0];
+                if (dueCust) setSelectedCustomerForPayment(dueCust);
               }}
-              className="bg-red-700 hover:bg-red-800 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg shadow-2xs transition-colors cursor-pointer shrink-0"
+              className="bg-red-700 hover:bg-red-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-2xs transition-colors cursor-pointer shrink-0 whitespace-nowrap"
             >
-              Collect Due
+              Collect Dues
             </button>
           </div>
           <div className="flex items-center gap-1 text-[11px] text-rose-600 font-medium pt-1 border-t border-rose-100">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse"></span>
-            <span>₹31,999 overdue by &gt; 30 days</span>
+            <span>
+              {customerStats.overdueAmount > 0
+                ? `₹${customerStats.overdueAmount.toLocaleString('en-IN')} overdue credit`
+                : 'All customer accounts active & healthy'}
+            </span>
           </div>
         </div>
 
@@ -387,15 +424,15 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           <div>
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
-                ₹18,92,400
+                ₹{customerStats.totalLifetimeSales.toLocaleString('en-IN')}
               </span>
               <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded uppercase">
-                FY 24-25
+                ALL-TIME
               </span>
             </div>
           </div>
           <div className="text-xs text-slate-500 pt-1 border-t border-slate-100 font-medium">
-            Avg. Basket Value: <span className="font-bold text-slate-800 font-mono">₹7,630</span>
+            Avg. Patron Value: <span className="font-bold text-slate-800 font-mono">₹{customerStats.avgBasket.toLocaleString('en-IN')}</span>
           </div>
         </div>
 
@@ -411,12 +448,14 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           </div>
           <div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">182</span>
-              <span className="text-xs font-semibold text-slate-500">Enrolled Patrons</span>
+              <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                {customerStats.vipCount}
+              </span>
+              <span className="text-xs font-semibold text-slate-500">VIP Members</span>
             </div>
           </div>
           <div className="text-xs text-blue-600 font-medium pt-1 border-t border-slate-100">
-            <span className="font-bold font-mono">14,210 pts</span> circulating in rewards
+            <span className="font-bold font-mono">{customerStats.totalPoints.toLocaleString('en-IN')} pts</span> circulating in rewards
           </div>
         </div>
       </div>
@@ -458,16 +497,16 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            All (248)
+            All ({customerStats.totalCount})
           </button>
 
-          {/* Tab 2: Due Khata (14) with red badge */}
+          {/* Tab 2: Due Khata with red badge */}
           <button
             onClick={() => {
               setActiveTab('due');
               setCurrentPage(1);
             }}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'due'
                 ? 'bg-red-50 text-red-700 border border-red-200 ring-1 ring-red-400'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -475,11 +514,11 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           >
             <span>Due Khata</span>
             <span className="bg-red-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-              14
+              {customerStats.dueCount}
             </span>
           </button>
 
-          {/* Tab 3: Settled (234) */}
+          {/* Tab 3: Settled */}
           <button
             onClick={() => {
               setActiveTab('settled');
@@ -491,10 +530,10 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            Settled (234)
+            Settled ({customerStats.settledCount})
           </button>
 
-          {/* Tab 4: VIPs (36) */}
+          {/* Tab 4: VIPs */}
           <button
             onClick={() => {
               setActiveTab('vip');
@@ -506,7 +545,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <span>⭐ VIPs (36)</span>
+            <span>⭐ VIPs ({customerStats.vipCount})</span>
           </button>
         </div>
 
@@ -872,66 +911,42 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         {/* TABLE FOOTER / PAGINATION BAR */}
         <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
           <div>
-            Showing <span className="font-bold text-slate-800">1 - {paginatedCustomers.length}</span> of{' '}
-            <span className="font-bold text-slate-800">248</span> registered customers
+            Showing{' '}
+            <span className="font-bold text-slate-800">
+              {sortedCustomers.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} -{' '}
+              {Math.min(currentPage * itemsPerPage, sortedCustomers.length)}
+            </span>{' '}
+            of <span className="font-bold text-slate-800">{sortedCustomers.length}</span> registered customers
           </div>
 
-          {/* Pagination buttons matching screenshot */}
+          {/* Pagination buttons dynamically rendered */}
           <div className="flex items-center gap-1 select-none">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none text-slate-700 font-medium transition-all"
+              className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none text-slate-700 font-medium transition-all cursor-pointer"
             >
               Previous
             </button>
 
-            <button
-              onClick={() => setCurrentPage(1)}
-              className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
-                currentPage === 1
-                  ? 'bg-blue-600 text-white shadow-2xs'
-                  : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
-              }`}
-            >
-              1
-            </button>
-
-            <button
-              onClick={() => setCurrentPage(2)}
-              className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
-                currentPage === 2
-                  ? 'bg-blue-600 text-white shadow-2xs'
-                  : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
-              }`}
-            >
-              2
-            </button>
-
-            <button
-              onClick={() => setCurrentPage(3)}
-              className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
-                currentPage === 3
-                  ? 'bg-blue-600 text-white shadow-2xs'
-                  : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
-              }`}
-            >
-              3
-            </button>
-
-            <span className="px-1 text-slate-400">...</span>
-
-            <button
-              onClick={() => setCurrentPage(totalPages)}
-              className="w-7 h-7 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 bg-white border border-slate-200 transition-all"
-            >
-              42
-            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+              <button
+                key={pg}
+                onClick={() => setCurrentPage(pg)}
+                className={`w-7 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  currentPage === pg
+                    ? 'bg-blue-600 text-white shadow-2xs'
+                    : 'text-slate-700 hover:bg-slate-100 bg-white border border-slate-200'
+                }`}
+              >
+                {pg}
+              </button>
+            ))}
 
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none text-slate-700 font-medium transition-all"
+              className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none text-slate-700 font-medium transition-all cursor-pointer"
             >
               Next
             </button>

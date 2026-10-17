@@ -111,6 +111,38 @@ export const PurchasesPage: React.FC = () => {
     });
   }, [bills, searchTerm, statusTab, selectedSupplierFilter]);
 
+  // Live aggregated purchase metrics
+  const purchaseStats = useMemo(() => {
+    const totalPurchases = bills.reduce((acc, b) => acc + (b.totalAmount || 0), 0);
+    const totalDue = bills.reduce((acc, b) => acc + (b.balanceDue || 0), 0);
+    const totalUnits = bills.reduce((acc, b) => acc + (b.unitsCount || 0), 0);
+    const paidCount = bills.filter((b) => b.paymentStatus === 'PAID FULL').length;
+    const dueCount = bills.filter(
+      (b) => b.paymentStatus === 'PARTIAL DUE' || b.paymentStatus === 'UNPAID'
+    ).length;
+    const draftCount = bills.filter((b) => b.stockSyncStatus === 'Pending').length;
+    const phoneUnits = bills.reduce((acc, b) => {
+      const isPhone =
+        (b.itemsSummary || '').toLowerCase().includes('phone') ||
+        (b.itemsSummary || '').toLowerCase().includes('vivo') ||
+        (b.itemsSummary || '').toLowerCase().includes('redmi') ||
+        (b.itemsSummary || '').toLowerCase().includes('samsung');
+      return isPhone ? acc + (b.unitsCount || 0) : acc;
+    }, 0);
+    const accessoriesUnits = Math.max(0, totalUnits - phoneUnits);
+
+    return {
+      totalPurchases,
+      totalDue,
+      totalUnits,
+      paidCount,
+      dueCount,
+      draftCount,
+      phoneUnits,
+      accessoriesUnits,
+    };
+  }, [bills]);
+
   // Payment settlement callback
   const handlePaymentSettled = async (billId: string, amount: number) => {
     try {
@@ -271,7 +303,7 @@ export const PurchasesPage: React.FC = () => {
               Purchase Management &amp; Stock-In
             </h1>
             <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-              OCTOBER CYCLE
+              {new Date().toLocaleDateString('en-IN', { month: 'long' }).toUpperCase()} CYCLE
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -315,11 +347,11 @@ export const PurchasesPage: React.FC = () => {
 
       {/* 3 KPI / SUMMARY METRIC CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Card 1: TOTAL PURCHASES (OCT) */}
+        {/* Card 1: TOTAL PURCHASES */}
         <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-3 hover:border-slate-300 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-[10px] sm:text-[11px] font-bold tracking-wider uppercase text-slate-400">
-              TOTAL PURCHASES (OCT)
+              TOTAL PURCHASES ({new Date().toLocaleDateString('en-IN', { month: 'short' }).toUpperCase()})
             </span>
             <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
               <ShoppingBag className="w-4 h-4" />
@@ -328,14 +360,14 @@ export const PurchasesPage: React.FC = () => {
           <div>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
-                ₹5,42,800
+                ₹{purchaseStats.totalPurchases.toLocaleString('en-IN')}
               </span>
             </div>
           </div>
           <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
             <span className="flex items-center gap-1 font-semibold text-emerald-600">
               <TrendingUp className="w-3.5 h-3.5" />
-              <span>+18.4%</span>
+              <span>Active Cycle</span>
             </span>
             <span className="font-medium text-slate-600">{bills.length} Inward Bills</span>
           </div>
@@ -354,13 +386,13 @@ export const PurchasesPage: React.FC = () => {
           <div className="flex items-center justify-between gap-1.5">
             <div className="flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-extrabold text-red-700 font-mono tracking-tight">
-                ₹1,14,500
+                ₹{purchaseStats.totalDue.toLocaleString('en-IN')}
               </span>
             </div>
             <button
               onClick={() => {
                 const dueBill = bills.find((b) => b.balanceDue > 0) || bills[0];
-                setSelectedBillForPayment(dueBill);
+                if (dueBill) setSelectedBillForPayment(dueBill);
               }}
               className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0"
             >
@@ -368,8 +400,10 @@ export const PurchasesPage: React.FC = () => {
             </button>
           </div>
           <div className="flex items-center justify-between text-xs pt-1 border-t border-rose-100">
-            <span className="text-slate-500">4 Active Suppliers</span>
-            <span className="text-rose-600 font-medium">Next: ₹60.5k due in 6d</span>
+            <span className="text-slate-500">{suppliers.length} Active Suppliers</span>
+            <span className="text-rose-600 font-medium">
+              {purchaseStats.dueCount > 0 ? `${purchaseStats.dueCount} pending settlements` : 'All bills settled'}
+            </span>
           </div>
         </div>
 
@@ -386,14 +420,14 @@ export const PurchasesPage: React.FC = () => {
           <div>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                184
+                {purchaseStats.totalUnits}
               </span>
               <span className="text-xs font-semibold text-slate-500">Units Received</span>
             </div>
           </div>
           <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
-            <span className="font-semibold text-blue-600">48 Phones (IMEI)</span>
-            <span>136 Accessories</span>
+            <span className="font-semibold text-blue-600">{purchaseStats.phoneUnits} Phones (IMEI)</span>
+            <span>{purchaseStats.accessoriesUnits} Accessories</span>
           </div>
         </div>
       </div>
@@ -408,7 +442,7 @@ export const PurchasesPage: React.FC = () => {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Filter by Supplier, Bill # (PUR/SUP), Pro..."
+            placeholder="Filter by Supplier, Bill # (PUR/SUP), Product..."
             className="w-full pl-8.5 pr-14 py-1.5 bg-slate-50 focus:bg-white text-xs text-slate-800 placeholder-slate-400 rounded-xl border border-slate-200 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-medium"
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -423,7 +457,7 @@ export const PurchasesPage: React.FC = () => {
           {/* Date Picker Button */}
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 cursor-pointer">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            <span>This Month: Oct 2024</span>
+            <span>This Month: {new Date().toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</span>
           </div>
 
           {/* Supplier Selector */}
@@ -433,7 +467,7 @@ export const PurchasesPage: React.FC = () => {
               onChange={(e) => setSelectedSupplierFilter(e.target.value)}
               className="appearance-none inline-flex items-center pl-8 pr-7 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 cursor-pointer focus:outline-none"
             >
-              <option value="all">All Suppliers (8 active)</option>
+              <option value="all">All Suppliers ({suppliers.length} active)</option>
               {suppliers.map((s) => (
                 <option key={s.id} value={s.name}>
                   {s.name}
@@ -447,7 +481,7 @@ export const PurchasesPage: React.FC = () => {
 
         {/* Status Tabs */}
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-none shrink-0 self-end xl:self-auto">
-          {/* All (16) */}
+          {/* All */}
           <button
             onClick={() => setStatusTab('all')}
             className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
@@ -456,10 +490,10 @@ export const PurchasesPage: React.FC = () => {
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            All (16)
+            All ({bills.length})
           </button>
 
-          {/* Paid (10) */}
+          {/* Paid */}
           <button
             onClick={() => setStatusTab('paid')}
             className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
@@ -468,10 +502,10 @@ export const PurchasesPage: React.FC = () => {
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            Paid (10)
+            Paid ({purchaseStats.paidCount})
           </button>
 
-          {/* Due (4) */}
+          {/* Due */}
           <button
             onClick={() => setStatusTab('due')}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
@@ -480,11 +514,11 @@ export const PurchasesPage: React.FC = () => {
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <span>Due (4)</span>
+            <span>Due ({purchaseStats.dueCount})</span>
             <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
           </button>
 
-          {/* Draft (2) */}
+          {/* Draft */}
           <button
             onClick={() => setStatusTab('draft')}
             className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
@@ -493,7 +527,7 @@ export const PurchasesPage: React.FC = () => {
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            Draft (2)
+            Draft ({purchaseStats.draftCount})
           </button>
         </div>
       </div>

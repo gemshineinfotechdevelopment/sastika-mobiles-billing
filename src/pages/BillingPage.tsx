@@ -347,7 +347,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         </div>
 
         {/* Category Pills Row */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs font-semibold">
+        <div className="flex items-center gap-2 flex-wrap text-xs font-semibold">
           {categories.map((cat) => {
             const isActive = selectedCategory === cat;
             return (
@@ -456,18 +456,24 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         {/* Header Strip with Invoice # and Auto-Generated Badge */}
         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-            <span className="font-bold text-slate-900 text-xs sm:text-sm tracking-tight">
-              Invoice #INV-2024-1043
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse"></span>
+            <span className="font-bold text-slate-900 text-xs sm:text-sm tracking-tight font-mono">
+              New Counter Bill
             </span>
             <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wider border border-blue-200/60">
-              AUTO-GENERATED
+              ACTIVE POS
             </span>
           </div>
 
-          <div className="flex items-center gap-1 text-[11px] text-slate-400 font-medium">
+          <div className="flex items-center gap-1 text-[11px] text-slate-500 font-medium">
             <Clock className="w-3.5 h-3.5 text-slate-400" />
-            <span>24 Oct 2024, 02:45 PM</span>
+            <span>
+              {new Date().toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })}
+            </span>
           </div>
         </div>
 

@@ -424,10 +424,10 @@ export const SalesPage: React.FC<SalesPageProps> = ({
             </div>
           </div>
           <div className="flex items-center justify-between pt-4 mt-2 border-t border-slate-100/80 text-xs">
-            <span className="text-slate-600 font-medium">28 Invoices generated</span>
+            <span className="text-slate-600 font-medium">{billsList.length} Invoices recorded</span>
             <span className="text-emerald-600 font-bold flex items-center gap-1">
               <TrendingUp className="w-3.5 h-3.5" />
-              +14.2% vs yesterday
+              Live Feed
             </span>
           </div>
         </div>
@@ -451,7 +451,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
             </div>
           </div>
           <div className="flex items-center justify-between pt-4 mt-2 border-t border-slate-100/80 text-xs">
-            <span className="text-slate-500">6 Partial/Unpaid bills</span>
+            <span className="text-slate-500">{dueBillsList.length} Partial/Unpaid bills</span>
             <button
               onClick={() => {
                 setReminderTargetBill(null);
@@ -483,7 +483,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
             </div>
           </div>
           <div className="flex items-center justify-between pt-4 mt-2 border-t border-slate-100/80 text-xs text-slate-500">
-            <span>1 Voided item returned</span>
+            <span>{cancelledCount} Voided bills</span>
             <span>Stock Restored (100%)</span>
           </div>
         </div>
@@ -515,7 +515,9 @@ export const SalesPage: React.FC<SalesPageProps> = ({
               className="flex items-center gap-2 px-3 py-2 bg-slate-50/70 hover:bg-slate-50 focus:bg-white border border-slate-200/90 rounded-xl text-xs text-slate-700 font-medium cursor-pointer"
             >
               <Calendar className="w-3.5 h-3.5 text-slate-500" />
-              <span>Today (24 Oct 2024)</span>
+              <span>
+                Today ({new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })})
+              </span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
           </div>
@@ -632,7 +634,9 @@ export const SalesPage: React.FC<SalesPageProps> = ({
           <div>
             <span>
               Showing results for: <strong>All Operators (Rajesh Kumar)</strong>, Terminal 01, Date:{' '}
-              <strong>24 Oct 2024 (00:00 - 23:59)</strong>
+              <strong>
+                {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </strong>
             </span>
             <button
               onClick={() => alert('View configuration saved as default!')}
