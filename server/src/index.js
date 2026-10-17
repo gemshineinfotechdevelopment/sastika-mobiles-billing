@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
@@ -86,7 +86,17 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/upload', uploadRouter);
 
-// 404 Handler
+// ─── Serve Frontend (Production) ─────────────────────────────────────
+// In production, serve the Vite-built frontend from ../dist
+const distPath = path.resolve(__dirname, '../../dist');
+app.use(express.static(distPath));
+
+// SPA Fallback: any non-API route serves index.html so React handles routing
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+
+// 404 Handler (only for unmatched API routes now)
 app.use((req, res) => {
   res.status(404).json({
     success: false,
