@@ -140,7 +140,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
             <div className="mt-2">
               <span className="text-3xl font-black text-slate-900 tracking-tight font-sans">
-                ₹{todaySales.toLocaleString('en-IN')}
+                ₹{(todaySales ?? 0).toLocaleString('en-IN')}
               </span>
             </div>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -234,7 +234,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
             <div className="mt-2">
               <span className="text-3xl font-black text-slate-900 tracking-tight font-sans">
-                ₹{monthlySales.toLocaleString('en-IN')}
+                ₹{(monthlySales ?? 0).toLocaleString('en-IN')}
               </span>
             </div>
             <div className="flex items-center justify-between text-xs mt-2">
@@ -254,7 +254,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <div className="flex items-center justify-between text-[11px] text-slate-500">
               <span>Active Period</span>
               <span className="font-bold text-slate-800">
-                ₹{Math.max(0, monthlyTarget - monthlySales).toLocaleString('en-IN')} to target
+                ₹{Math.max(0, (monthlyTarget || 0) - (monthlySales || 0)).toLocaleString('en-IN')} to target
               </span>
             </div>
           </div>

@@ -173,18 +173,18 @@ export const SalesPage: React.FC<SalesPageProps> = ({
     ];
 
     const rows = filteredBills.map((b) => [
-      `"${b.invoiceNumber}"`,
+      `"${b.invoiceNumber || ''}"`,
       `"${b.time || ''}"`,
-      `"${new Date(b.date).toLocaleDateString('en-IN')}"`,
-      `"${b.customer.name}"`,
-      `"${b.customer.phone || ''}"`,
+      `"${b.date ? new Date(b.date).toLocaleDateString('en-IN') : ''}"`,
+      `"${b.customer?.name || (b as any).customerName || 'Walk-in Customer'}"`,
+      `"${b.customer?.phone || (b as any).customerPhone || ''}"`,
       `"${b.customerType || 'Customer'}"`,
-      `"${b.itemSummary || b.items.map((i) => i.name).join(', ')}"`,
-      b.grandTotal,
-      b.paidAmount || b.grandTotal,
-      b.balanceDue || 0,
+      `"${b.itemSummary || (b.items || []).map((i) => i.name).join(', ')}"`,
+      b.grandTotal ?? 0,
+      b.paidAmount !== undefined ? b.paidAmount : (b.grandTotal ?? 0),
+      b.balanceDue ?? 0,
       `"${b.status || 'PAID'}"`,
-      `"${b.tenderMode || b.paymentMode}"`,
+      `"${b.tenderMode || b.paymentMode || ''}"`,
     ]);
 
     const csvContent =
@@ -696,8 +696,12 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                 paginatedBills.map((bill) => {
                   const isCancelled = bill.status === 'CANCELLED' || Boolean(bill.isCancelled);
                   const isSelected = selectedIds.has(bill.id);
-                  const balance = bill.balanceDue || 0;
-                  const paid = bill.paidAmount !== undefined ? bill.paidAmount : bill.grandTotal;
+                  const grandTotal = bill.grandTotal ?? 0;
+                  const balance = bill.balanceDue ?? 0;
+                  const paid = bill.paidAmount !== undefined ? bill.paidAmount : grandTotal;
+                  const customerName = bill.customer?.name || (bill as any).customerName || 'Walk-in Customer';
+                  const customerPhone = bill.customer?.phone || (bill as any).customerPhone || 'Walk-in';
+                  const itemsList = bill.items || [];
 
                   return (
                     <tr
@@ -731,7 +735,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                               isCancelled ? 'text-rose-500 line-through' : 'text-blue-600'
                             }`}
                           >
-                            {bill.invoiceNumber}
+                            {bill.invoiceNumber || 'INV-000'}
                           </button>
                           {isCancelled ? (
                             <span className="text-rose-500 text-xs" title="Voided Invoice">
@@ -754,24 +758,24 @@ export const SalesPage: React.FC<SalesPageProps> = ({
 
                       {/* 2. DATE */}
                       <td className="py-3 px-3 whitespace-nowrap text-slate-700 font-medium">
-                        {new Date(bill.date).toLocaleDateString('en-GB', {
+                        {bill.date ? new Date(bill.date).toLocaleDateString('en-GB', {
                           day: '2-digit',
                           month: 'short',
                           year: 'numeric',
-                        })}
+                        }) : 'Today'}
                       </td>
 
                       {/* 3. CUSTOMER DETAILS */}
                       <td className="py-3 px-3 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-slate-900">{bill.customer.name}</span>
+                          <span className="font-bold text-slate-900">{customerName}</span>
                           {renderCustomerBadge(bill.customerType)}
                         </div>
                         <div className="text-[11px] text-slate-400 font-mono mt-0.5">
                           {isCancelled && bill.voidReason ? (
                             <span className="text-rose-600 font-sans">{bill.voidReason}</span>
                           ) : (
-                            bill.customer.phone || 'Walk-in'
+                            customerPhone
                           )}
                         </div>
                       </td>
@@ -784,8 +788,8 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                           }`}
                         >
                           {bill.itemSummary ||
-                            (bill.items.length > 0
-                              ? `${bill.items[0].name} (${bill.items.length} items)`
+                            (itemsList.length > 0
+                              ? `${itemsList[0]?.name || 'Product'} (${itemsList.length} items)`
                               : 'Products')}
                         </div>
                         <div className="text-[11px] mt-0.5">
@@ -797,7 +801,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                             </span>
                           ) : (
                             <span className="text-slate-400 font-mono">
-                              {bill.subSummary || `${bill.items.length} item(s)`}
+                              {bill.subSummary || `${itemsList.length} item(s)`}
                             </span>
                           )}
                         </div>
@@ -810,7 +814,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                             isCancelled ? 'text-slate-400 line-through' : 'text-slate-900'
                           }`}
                         >
-                          ₹{bill.grandTotal.toLocaleString('en-IN')}.00
+                          ₹{(grandTotal ?? 0).toLocaleString('en-IN')}.00
                         </div>
                       </td>
 
@@ -821,7 +825,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                             paid > 0 ? 'text-emerald-700' : 'text-slate-400'
                           }`}
                         >
-                          ₹{paid.toLocaleString('en-IN')}.00
+                          ₹{(paid ?? 0).toLocaleString('en-IN')}.00
                         </div>
                       </td>
 
@@ -830,7 +834,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                         {balance > 0 ? (
                           <div>
                             <span className="font-mono font-extrabold text-rose-600">
-                              ₹{balance.toLocaleString('en-IN')}.00
+                              ₹{(balance ?? 0).toLocaleString('en-IN')}.00
                             </span>
                             {bill.dueDate && (
                               <span className="block text-[10px] text-rose-600 font-medium">

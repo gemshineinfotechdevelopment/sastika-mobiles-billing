@@ -16,6 +16,7 @@ import { AddProductModal } from './components/modals/AddProductModal';
 import { AddCustomerModal } from './components/modals/AddCustomerModal';
 import { api } from './services/api';
 import type { Bill, HealthResponse, Product } from './types';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { AlertCircle, X } from 'lucide-react';
 import './App.css';
 
@@ -146,56 +147,76 @@ export function App() {
 
         {/* Every Web Page runs from src/pages/ */}
         {activeTab === 'dashboard' && (
-          <DashboardPage
-            bills={bills}
-            products={products}
-            onNavigateTab={(tab) => setActiveTab(tab)}
-            onOpenAddProduct={() => setShowAddProductModal(true)}
-            onOpenAddCustomer={() => setShowAddCustomerModal(true)}
-            onViewBill={(bill) => setSelectedBill(bill)}
-          />
+          <ErrorBoundary key="dashboard" fallbackMessage="Dashboard failed to load">
+            <DashboardPage
+              bills={bills}
+              products={products}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              onOpenAddProduct={() => setShowAddProductModal(true)}
+              onOpenAddCustomer={() => setShowAddCustomerModal(true)}
+              onViewBill={(bill) => setSelectedBill(bill)}
+            />
+          </ErrorBoundary>
         )}
 
         {activeTab === 'billing' && (
-          <BillingPage
-            products={products}
-            onInvoiceCreated={handleInvoiceCreated}
-            onOpenAddCustomer={() => setShowAddCustomerModal(true)}
-          />
+          <ErrorBoundary key="billing" fallbackMessage="Billing page failed to load">
+            <BillingPage
+              products={products}
+              onInvoiceCreated={handleInvoiceCreated}
+              onOpenAddCustomer={() => setShowAddCustomerModal(true)}
+            />
+          </ErrorBoundary>
         )}
 
         {activeTab === 'products' && (
-          <ProductsPage
-            products={products}
-            onProductAdded={loadData}
-          />
+          <ErrorBoundary key="products" fallbackMessage="Products page failed to load">
+            <ProductsPage
+              products={products}
+              onProductAdded={loadData}
+            />
+          </ErrorBoundary>
         )}
 
         {activeTab === 'sales' && (
-          <SalesPage
-            bills={bills}
-            onSelectBill={(bill) => setSelectedBill(bill)}
-            onNewBill={() => setActiveTab('billing')}
-          />
+          <ErrorBoundary key="sales" fallbackMessage="Sales page failed to load">
+            <SalesPage
+              bills={bills}
+              onSelectBill={(bill) => setSelectedBill(bill)}
+              onNewBill={() => setActiveTab('billing')}
+            />
+          </ErrorBoundary>
         )}
 
         {activeTab === 'customers' && (
-          <CustomersPage
-            onOpenAddCustomer={() => setShowAddCustomerModal(true)}
-          />
+          <ErrorBoundary key="customers" fallbackMessage="Customers page failed to load">
+            <CustomersPage
+              onOpenAddCustomer={() => setShowAddCustomerModal(true)}
+            />
+          </ErrorBoundary>
         )}
 
-        {activeTab === 'purchases' && <PurchasesPage />}
+        {activeTab === 'purchases' && (
+          <ErrorBoundary key="purchases" fallbackMessage="Purchases page failed to load">
+            <PurchasesPage />
+          </ErrorBoundary>
+        )}
 
         {activeTab === 'reports' && (
-          <ReportsPage
-            bills={bills}
-            products={products}
-            onNavigateTab={(tab) => setActiveTab(tab)}
-          />
+          <ErrorBoundary key="reports" fallbackMessage="Reports page failed to load">
+            <ReportsPage
+              bills={bills}
+              products={products}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+            />
+          </ErrorBoundary>
         )}
 
-        {activeTab === 'settings' && <SettingsPage />}
+        {activeTab === 'settings' && (
+          <ErrorBoundary key="settings" fallbackMessage="Settings page failed to load">
+            <SettingsPage />
+          </ErrorBoundary>
+        )}
       </MainLayout>
 
       {/* Invoice Modal for Viewing & Printing */}

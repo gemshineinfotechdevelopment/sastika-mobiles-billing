@@ -360,7 +360,7 @@ export const PurchasesPage: React.FC = () => {
           <div>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
-                ₹{purchaseStats.totalPurchases.toLocaleString('en-IN')}
+                ₹{(purchaseStats?.totalPurchases ?? 0).toLocaleString('en-IN')}
               </span>
             </div>
           </div>
@@ -386,7 +386,7 @@ export const PurchasesPage: React.FC = () => {
           <div className="flex items-center justify-between gap-1.5">
             <div className="flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-extrabold text-red-700 font-mono tracking-tight">
-                ₹{purchaseStats.totalDue.toLocaleString('en-IN')}
+                ₹{(purchaseStats?.totalDue ?? 0).toLocaleString('en-IN')}
               </span>
             </div>
             <button
@@ -632,7 +632,7 @@ export const PurchasesPage: React.FC = () => {
                       {/* 4. TOTAL AMOUNT */}
                       <td className="py-3 px-3 align-top">
                         <p className="font-bold font-mono text-slate-900 text-sm">
-                          ₹{bill.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          ₹{(bill.totalAmount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </p>
                       </td>
 
@@ -640,21 +640,21 @@ export const PurchasesPage: React.FC = () => {
                       <td className="py-3 px-3 align-top">
                         <div>
                           <p className="text-slate-400 text-[11px]">
-                            Paid: <span className="font-mono font-medium text-slate-600">₹{bill.paidAmount.toLocaleString('en-IN')}</span>
+                            Paid: <span className="font-mono font-medium text-slate-600">₹{(bill.paidAmount ?? 0).toLocaleString('en-IN')}</span>
                           </p>
                           <p className="mt-0.5">
                             <span className="text-slate-500 text-[11px]">Due: </span>
                             <span
                               className={`font-mono font-bold text-xs ${
-                                bill.balanceDue > 0 ? 'text-rose-700' : 'text-emerald-700'
+                                (bill.balanceDue ?? 0) > 0 ? 'text-rose-700' : 'text-emerald-700'
                               }`}
                             >
-                              ₹{bill.balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              ₹{(bill.balanceDue ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </span>
                           </p>
                           <p
                             className={`text-[10px] font-medium mt-0.5 ${
-                              bill.balanceDue > 0 ? 'text-rose-600' : 'text-emerald-600'
+                              (bill.balanceDue ?? 0) > 0 ? 'text-rose-600' : 'text-emerald-600'
                             }`}
                           >
                             {bill.dueNotice}

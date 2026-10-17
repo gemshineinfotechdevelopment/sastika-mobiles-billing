@@ -327,7 +327,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
               <div className="col-span-3 sm:col-span-1 text-right">
                 <label className="block text-[11px] font-medium text-slate-500 mb-1">Total</label>
                 <div className="text-xs font-bold text-slate-800 font-mono py-1.5">
-                  ₹{item.total.toLocaleString('en-IN')}
+                  ₹{(item.total ?? 0).toLocaleString('en-IN')}
                 </div>
               </div>
 

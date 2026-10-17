@@ -428,7 +428,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                 <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
                   <div>
                     <span className="font-extrabold text-sm sm:text-base text-slate-900 font-sans tracking-tight">
-                      ₹{product.price.toLocaleString('en-IN')}
+                      ₹{(product.price ?? 0).toLocaleString('en-IN')}
                     </span>
                     <span className="block text-[10px] text-slate-400 font-medium">
                       Incl. 18% GST
@@ -641,7 +641,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
                       {/* Rate */}
                       <td className="py-3 px-3 text-right font-black text-slate-900 font-mono whitespace-nowrap">
-                        ₹{item.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹{(item.total ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
 
                       {/* Action Trash */}
@@ -667,7 +667,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           <div className="flex items-center justify-between text-slate-600">
             <span>Subtotal ({totalItemsCount} items)</span>
             <span className="font-mono font-semibold text-slate-900">
-              ₹{rawSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              ₹{(rawSubtotal ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </span>
           </div>
 
@@ -690,28 +690,28 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               {discountLabel}
             </span>
             <span className="font-mono">
-              -₹{discount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              -₹{(discount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </span>
           </div>
 
           <div className="flex items-center justify-between text-slate-500">
             <span>Taxable Value</span>
             <span className="font-mono">
-              ₹{taxableValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              ₹{(taxableValue ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </span>
           </div>
 
           <div className="flex items-center justify-between text-slate-500">
             <span>CGST @ 9%</span>
             <span className="font-mono">
-              ₹{cgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              ₹{(cgst ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </span>
           </div>
 
           <div className="flex items-center justify-between text-slate-500">
             <span>SGST @ 9%</span>
             <span className="font-mono">
-              ₹{sgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              ₹{(sgst ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </span>
           </div>
 
@@ -727,7 +727,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             </div>
             <div className="text-right">
               <span className="text-2xl font-black text-blue-600 font-sans tracking-tight">
-                ₹{netPayable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                ₹{(netPayable ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>

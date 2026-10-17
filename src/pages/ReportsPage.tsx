@@ -188,11 +188,11 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
           .map((p) => ({
             id: p.id,
             name: p.name,
-            subtext: `${p.model || p.variant || 'Standard'} | Rate: ₹${p.price.toLocaleString('en-IN')}`,
-            rate: p.price,
-            availUnits: p.stock,
+            subtext: `${p.model || p.variant || 'Standard'} | Rate: ₹${(p.price ?? 0).toLocaleString('en-IN')}`,
+            rate: p.price ?? 0,
+            availUnits: p.stock ?? 0,
             minSafe: p.minThreshold || 5,
-            isUrgent: p.stock <= 1,
+            isUrgent: (p.stock ?? 0) <= 1,
           }))
       : analytics?.reorderAlerts || [];
 
@@ -471,7 +471,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
                 </span>
                 <div className="flex items-baseline gap-1 mt-1">
                   <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-sans">
-                    ₹{liveTodayGross.toLocaleString('en-IN')}
+                    ₹{(liveTodayGross ?? 0).toLocaleString('en-IN')}
                   </span>
                 </div>
               </div>
@@ -489,7 +489,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
           <div className="flex items-center justify-between pt-3 mt-4 border-t border-slate-100/90 text-xs text-slate-600">
             <span className="font-medium">{liveTodayInvoices} Invoices</span>
             <span className="font-bold text-slate-800">
-              Avg ₹{liveTodayInvoices > 0 ? Math.round(liveTodayGross / liveTodayInvoices).toLocaleString('en-IN') : 0}
+              Avg ₹{liveTodayInvoices > 0 ? Math.round((liveTodayGross || 0) / liveTodayInvoices).toLocaleString('en-IN') : 0}
             </span>
           </div>
         </div>
@@ -504,7 +504,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
                 </span>
                 <div className="flex items-baseline gap-1 mt-1">
                   <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-sans">
-                    ₹{liveMonthlySales.toLocaleString('en-IN')}
+                    ₹{(liveMonthlySales ?? 0).toLocaleString('en-IN')}
                   </span>
                 </div>
               </div>
@@ -676,17 +676,17 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
 
                         {/* Revenue */}
                         <td className="py-3.5 px-3 text-right font-extrabold text-slate-900 font-sans">
-                          ₹{cat.revenue.toLocaleString('en-IN')}
+                          ₹{(cat.revenue ?? 0).toLocaleString('en-IN')}
                         </td>
 
                         {/* COGS */}
                         <td className="py-3.5 px-3 text-right text-slate-600 font-medium font-sans">
-                          ₹{cat.cogs.toLocaleString('en-IN')}
+                          ₹{(cat.cogs ?? 0).toLocaleString('en-IN')}
                         </td>
 
                         {/* Gross Profit */}
                         <td className="py-3.5 px-3 text-right font-bold text-emerald-600 font-sans">
-                          ₹{cat.grossProfit.toLocaleString('en-IN')}
+                          ₹{(cat.grossProfit ?? 0).toLocaleString('en-IN')}
                         </td>
 
                         {/* Margin % */}
@@ -698,7 +698,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
                                 : 'text-emerald-700'
                             }`}
                           >
-                            {cat.marginPercent.toFixed(1)}%
+                            {(cat.marginPercent || 0).toFixed(1)}%
                           </span>
                         </td>
 
@@ -706,12 +706,12 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
                         <td className="py-3.5 px-4 min-w-[130px]">
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-slate-700 text-[11px] w-9">
-                              {cat.contributionPercent.toFixed(1)}%
+                              {(cat.contributionPercent || 0).toFixed(1)}%
                             </span>
                             <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                               <div
                                 className="bg-blue-600 h-full rounded-full"
-                                style={{ width: `${cat.contributionPercent}%` }}
+                                style={{ width: `${cat.contributionPercent || 0}%` }}
                               />
                             </div>
                           </div>
@@ -728,19 +728,19 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
                       TOTAL CONSOLIDATED (OCT 1 - 24)
                     </td>
                     <td className="py-3 px-3 text-center font-extrabold text-slate-900">
-                      {consolidated.unitsSold} Units
+                      {consolidated.unitsSold || 0} Units
                     </td>
                     <td className="py-3 px-3 text-right font-black text-blue-700">
-                      ₹{consolidated.revenue.toLocaleString('en-IN')}
+                      ₹{(consolidated.revenue ?? 0).toLocaleString('en-IN')}
                     </td>
                     <td className="py-3 px-3 text-right font-bold text-slate-700">
-                      ₹{consolidated.cogs.toLocaleString('en-IN')}
+                      ₹{(consolidated.cogs ?? 0).toLocaleString('en-IN')}
                     </td>
                     <td className="py-3 px-3 text-right font-black text-emerald-700">
-                      ₹{consolidated.grossProfit.toLocaleString('en-IN')}
+                      ₹{(consolidated.grossProfit ?? 0).toLocaleString('en-IN')}
                     </td>
                     <td className="py-3 px-3 text-center font-bold text-slate-800">
-                      {consolidated.marginPercent}%
+                      {consolidated.marginPercent || 0}%
                     </td>
                     <td className="py-3 px-4 font-bold text-slate-800 text-[11px]">
                       {consolidated.contributionPercent.toFixed(1)}%
@@ -920,7 +920,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
                   <p className="text-[11px] text-slate-400 mt-1">
                     Estimated PO Value:{' '}
                     <strong className="text-slate-800">
-                      ₹{(reorderQuantity * reorderModalItem.rate).toLocaleString('en-IN')}
+                      ₹{((reorderQuantity * (reorderModalItem?.rate || 0)) || 0).toLocaleString('en-IN')}
                     </strong>
                   </p>
                 </div>

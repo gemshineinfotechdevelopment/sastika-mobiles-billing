@@ -384,10 +384,10 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
             <div className="min-w-0">
               <div className="flex items-baseline gap-1 flex-wrap">
                 <span className="text-2xl sm:text-3xl font-extrabold text-red-700 font-mono tracking-tight">
-                  ₹{customerStats.totalDue.toLocaleString('en-IN')}
+                  ₹{(customerStats?.totalDue ?? 0).toLocaleString('en-IN')}
                 </span>
                 <span className="text-[11px] font-semibold text-slate-400">
-                  / {customerStats.dueCount} {customerStats.dueCount === 1 ? 'account' : 'accounts'}
+                  / {customerStats?.dueCount ?? 0} {(customerStats?.dueCount ?? 0) === 1 ? 'account' : 'accounts'}
                 </span>
               </div>
             </div>
@@ -404,8 +404,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           <div className="flex items-center gap-1 text-[11px] text-rose-600 font-medium pt-1 border-t border-rose-100">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse"></span>
             <span>
-              {customerStats.overdueAmount > 0
-                ? `₹${customerStats.overdueAmount.toLocaleString('en-IN')} overdue credit`
+              {(customerStats?.overdueAmount ?? 0) > 0
+                ? `₹${(customerStats?.overdueAmount ?? 0).toLocaleString('en-IN')} overdue credit`
                 : 'All customer accounts active & healthy'}
             </span>
           </div>
@@ -424,7 +424,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           <div>
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
-                ₹{customerStats.totalLifetimeSales.toLocaleString('en-IN')}
+                ₹{(customerStats?.totalLifetimeSales ?? 0).toLocaleString('en-IN')}
               </span>
               <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded uppercase">
                 ALL-TIME
@@ -432,7 +432,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
             </div>
           </div>
           <div className="text-xs text-slate-500 pt-1 border-t border-slate-100 font-medium">
-            Avg. Patron Value: <span className="font-bold text-slate-800 font-mono">₹{customerStats.avgBasket.toLocaleString('en-IN')}</span>
+            Avg. Patron Value: <span className="font-bold text-slate-800 font-mono">₹{(customerStats?.avgBasket ?? 0).toLocaleString('en-IN')}</span>
           </div>
         </div>
 
@@ -449,13 +449,13 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           <div>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                {customerStats.vipCount}
+                {customerStats?.vipCount ?? 0}
               </span>
               <span className="text-xs font-semibold text-slate-500">VIP Members</span>
             </div>
           </div>
           <div className="text-xs text-blue-600 font-medium pt-1 border-t border-slate-100">
-            <span className="font-bold font-mono">{customerStats.totalPoints.toLocaleString('en-IN')} pts</span> circulating in rewards
+            <span className="font-bold font-mono">{(customerStats?.totalPoints ?? 0).toLocaleString('en-IN')} pts</span> circulating in rewards
           </div>
         </div>
       </div>
@@ -648,7 +648,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                               customer.avatarBg || 'bg-blue-600 text-white'
                             }`}
                           >
-                            {customer.initials || customer.name.slice(0, 2).toUpperCase()}
+                            {customer.initials || (customer.name ? customer.name.slice(0, 2).toUpperCase() : 'CU')}
                           </div>
 
                           {/* Name + Tier badge + ID & Location */}
@@ -658,7 +658,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                                 className="font-bold text-slate-900 text-sm hover:text-blue-600 cursor-pointer"
                                 onClick={() => setSelectedCustomerForLedger(customer)}
                               >
-                                {customer.name}
+                                {customer.name || 'Unknown Customer'}
                               </span>
                               <span
                                 className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tight ${
@@ -673,9 +673,9 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                               </span>
                             </div>
                             <p className="text-slate-500 text-[11px] mt-0.5">
-                              <span className="font-mono font-medium">{customer.id}</span>
+                              <span className="font-mono font-medium">{customer.id || ''}</span>
                               <span className="mx-1.5">•</span>
-                              <span>{customer.address || 'Chennai'}</span>
+                              <span>{customer.address || 'Local'}</span>
                             </p>
                           </div>
                         </div>
@@ -685,12 +685,12 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                       <td className="py-3.5 px-3">
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-slate-700 font-medium text-xs">
-                            {customer.phone}
+                            {customer.phone || 'N/A'}
                           </span>
                           <div className="flex items-center gap-1">
                             {/* WhatsApp / Chat Message Icon */}
                             <a
-                              href={`https://wa.me/${customer.phone.replace(/[^0-9]/g, '')}`}
+                              href={customer.phone ? `https://wa.me/${customer.phone.replace(/[^0-9]/g, '')}` : '#'}
                               target="_blank"
                               rel="noreferrer"
                               className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
@@ -700,7 +700,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                             </a>
                             {/* Phone Call Icon */}
                             <a
-                              href={`tel:${customer.phone}`}
+                              href={customer.phone ? `tel:${customer.phone}` : '#'}
                               className="p-1.5 rounded-lg text-teal-600 hover:text-teal-700 hover:bg-teal-50 transition-colors"
                               title="Call customer"
                             >
@@ -714,14 +714,14 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                       <td className="py-3.5 px-3">
                         <div>
                           <p className="font-bold font-mono text-slate-900 text-sm">
-                            ₹{(customer.lifetimeSales || 0).toLocaleString('en-IN', {
+                            ₹{((customer.lifetimeSales || 0)).toLocaleString('en-IN', {
                               minimumFractionDigits: 2,
                             })}
                           </p>
                           <p className="text-slate-400 text-[11px] mt-0.5">
                             {customer.billsCount || 1} Bills • Last:{' '}
                             <span className="text-slate-600 font-medium">
-                              {customer.lastBillDate || '20 Oct'}
+                              {customer.lastBillDate || 'Recent'}
                             </span>
                           </p>
                         </div>
@@ -742,7 +742,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                           /* High Risk / Red Amount */
                           <div>
                             <p className="font-extrabold font-mono text-rose-700 text-sm">
-                              ₹{due.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              ₹{(due ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </p>
                             <span className="inline-block text-[10px] font-extrabold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded uppercase mt-0.5">
                               {customer.dueText || '> 35 DAYS DUE'}
@@ -752,17 +752,17 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                           /* Regular Red Amount */
                           <div>
                             <p className="font-bold font-mono text-red-600 text-sm">
-                              ₹{due.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              ₹{(due ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </p>
                             <p className="text-red-500 text-[11px] font-medium mt-0.5">
-                              {customer.dueText || 'Due since 24 Oct'}
+                              {customer.dueText || 'Due Balance'}
                             </p>
                           </div>
                         ) : (
                           /* Partial / Amber Amount */
                           <div>
                             <p className="font-bold font-mono text-amber-700 text-sm">
-                              ₹{due.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              ₹{(due ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </p>
                             <p className="text-amber-600 text-[11px] font-medium mt-0.5">
                               {customer.dueText || 'Partial Balance'}
