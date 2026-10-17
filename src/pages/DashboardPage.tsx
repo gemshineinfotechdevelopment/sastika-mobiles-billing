@@ -33,180 +33,40 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [salesTab, setSalesTab] = useState<'gross' | 'breakdown'>('gross');
   const [reorderedItems, setReorderedItems] = useState<string[]>([]);
 
-  // Default mock bills matching the screenshot if no backend bills or merged
-  const fallbackBills: Bill[] = [
-    {
-      id: 'mock-1042',
-      invoiceNumber: 'INV-2024-1042',
-      date: '2024-10-24T11:42:00.000Z',
-      customer: {
-        name: 'Vignesh R',
-        phone: '+91 98401 23456',
-        address: 'Madurai',
-      },
-      items: [
-        {
-          name: 'OnePlus Nord CE3',
-          model: '+ 67W Adapter',
-          quantity: 1,
-          unitPrice: 22499,
-          gstRate: 18,
-          taxableAmount: 19066.95,
-          cgst: 1716.02,
-          sgst: 1716.02,
-          total: 22499,
-        },
-      ],
-      subTotal: 19066.95,
-      cgstTotal: 1716.02,
-      sgstTotal: 1716.02,
-      totalTax: 3432.04,
-      grandTotal: 22499,
-      paymentMode: 'UPI',
-      notes: 'Counter POS sale',
-    },
-    {
-      id: 'mock-1041',
-      invoiceNumber: 'INV-2024-1041',
-      date: '2024-10-24T11:15:00.000Z',
-      customer: {
-        name: 'Deepak Kumar',
-        phone: '+91 97890 88211',
-      },
-      items: [
-        {
-          name: 'Boat Rockerz 255 Pro+',
-          model: 'Navy Blue • 1 yr War.',
-          quantity: 1,
-          unitPrice: 1299,
-          gstRate: 18,
-          taxableAmount: 1100.85,
-          cgst: 99.07,
-          sgst: 99.07,
-          total: 1299,
-        },
-      ],
-      subTotal: 1100.85,
-      cgstTotal: 99.07,
-      sgstTotal: 99.07,
-      totalTax: 198.14,
-      grandTotal: 1299,
-      paymentMode: 'CASH',
-      notes: 'Counter POS sale',
-    },
-    {
-      id: 'mock-1040',
-      invoiceNumber: 'INV-2024-1040',
-      date: '2024-10-24T10:48:00.000Z',
-      customer: {
-        name: 'Kavitha Mehra',
-        phone: '+91 94441 55092',
-      },
-      items: [
-        {
-          name: 'Samsung Galaxy A15 5G',
-          model: 'Blue 128GB + Case',
-          quantity: 1,
-          unitPrice: 16799,
-          gstRate: 18,
-          taxableAmount: 14236.44,
-          cgst: 1281.28,
-          sgst: 1281.28,
-          total: 16799,
-        },
-      ],
-      subTotal: 14236.44,
-      cgstTotal: 1281.28,
-      sgstTotal: 1281.28,
-      totalTax: 2562.56,
-      grandTotal: 16799,
-      paymentMode: 'CARD',
-      notes: 'Counter POS sale',
-    },
-    {
-      id: 'mock-1039',
-      invoiceNumber: 'INV-2024-1039',
-      date: '2024-10-24T10:22:00.000Z',
-      customer: {
-        name: 'S. Karthikeyan',
-        phone: '+91 98410 77341',
-      },
-      items: [
-        {
-          name: 'Tempered Glass (2)',
-          model: '+ Matte Back Cover',
-          quantity: 2,
-          unitPrice: 325,
-          gstRate: 18,
-          taxableAmount: 550.85,
-          cgst: 49.57,
-          sgst: 49.57,
-          total: 650,
-        },
-      ],
-      subTotal: 550.85,
-      cgstTotal: 49.57,
-      sgstTotal: 49.57,
-      totalTax: 99.14,
-      grandTotal: 650,
-      paymentMode: 'UPI',
-      notes: 'Counter POS sale',
-    },
-    {
-      id: 'mock-1038',
-      invoiceNumber: 'INV-2024-1038',
-      date: '2024-10-24T09:55:00.000Z',
-      customer: {
-        name: 'M. Balaji',
-        phone: '+91 99620 44510',
-      },
-      items: [
-        {
-          name: 'Realme Narzo 60x 5G',
-          model: 'Nebula Purple 128GB',
-          quantity: 1,
-          unitPrice: 13499,
-          gstRate: 18,
-          taxableAmount: 11439.83,
-          cgst: 1029.58,
-          sgst: 1029.58,
-          total: 13499,
-        },
-      ],
-      subTotal: 11439.83,
-      cgstTotal: 1029.58,
-      sgstTotal: 1029.58,
-      totalTax: 2059.16,
-      grandTotal: 13499,
-      paymentMode: 'CASH',
-      notes: 'Counter POS sale',
-    },
-  ];
+  // Filter active valid bills
+  const validBills = bills.filter((b) => !b.isCancelled);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayBills = validBills.filter((b) => (b.date || '').slice(0, 10) === todayStr);
 
-  // Merge live bills with fallback bills so the table always displays rich data
-  const displayedBills = bills.length > 0 ? [...bills, ...fallbackBills].slice(0, 5) : fallbackBills;
+  // Live KPI Calculations from MongoDB Bills
+  const activeBillsForKpi = todayBills.length > 0 ? todayBills : validBills;
+  const todaySales = activeBillsForKpi.reduce((acc, b) => acc + (b.grandTotal || 0), 0);
+  const todayCount = activeBillsForKpi.length;
 
-  // Low stock items matching screenshot
-  const lowStockItems = [
-    {
-      id: 'ls-1',
-      name: 'iPhone 15 Tempered',
-      subtitle: 'Spigen 9H Curved Edge',
-      stockLeft: 3,
-    },
-    {
-      id: 'ls-2',
-      name: 'Samsung 25W Type',
-      subtitle: 'Original Adapter (White)',
-      stockLeft: 2,
-    },
-    {
-      id: 'ls-3',
-      name: 'Boat Airdopes 141',
-      subtitle: 'Bold Black TWS',
-      stockLeft: 1,
-    },
-  ];
+  const walkInCount = activeBillsForKpi.filter(
+    (b) => !b.customer?.id && (!b.customer?.phone || b.customer?.phone === 'Counter Sale' || b.customer?.name?.includes('Walk-in'))
+  ).length;
+  const memberCount = Math.max(0, todayCount - walkInCount);
+  const walkInPct = todayCount > 0 ? Math.round((walkInCount / todayCount) * 100) : 70;
+  const memberPct = 100 - walkInPct;
+
+  const monthlySales = validBills.reduce((acc, b) => acc + (b.grandTotal || 0), 0);
+  const monthlyTarget = 1000000;
+  const monthlyPercent = Number(((monthlySales / monthlyTarget) * 100).toFixed(1));
+
+  // Display only real bills from MongoDB database
+  const displayedBills = validBills.slice(0, 8);
+
+  // Dynamic Low stock alerts calculated from MongoDB Products
+  const criticalProducts = products.filter(
+    (p) => (p.stock || 0) <= (p.minThreshold || 5)
+  );
+  const lowStockItems = criticalProducts.slice(0, 5).map((p) => ({
+    id: p.id,
+    name: p.name,
+    subtitle: `${p.model || p.category} • Left: ${p.stock}`,
+    stockLeft: p.stock,
+  }));
 
   const handleReorder = (itemId: string, name: string) => {
     setReorderedItems((prev) => [...prev, itemId]);
@@ -274,14 +134,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
             <div className="mt-2">
               <span className="text-3xl font-black text-slate-900 tracking-tight font-sans">
-                ₹48,650
+                ₹{todaySales.toLocaleString('en-IN')}
               </span>
             </div>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                ↑ 14.2%
+                Live Data
               </span>
-              <span className="text-xs text-slate-500">vs. yesterday (₹42,600)</span>
+              <span className="text-xs text-slate-500">From database billing records</span>
             </div>
           </div>
 
@@ -321,12 +181,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               </div>
             </div>
             <div className="mt-2 flex items-baseline gap-1.5">
-              <span className="text-3xl font-black text-slate-900 tracking-tight">19</span>
+              <span className="text-3xl font-black text-slate-900 tracking-tight">{todayCount}</span>
               <span className="text-sm font-semibold text-slate-600">invoices</span>
             </div>
             <div className="flex items-center justify-between text-xs text-slate-600 mt-2 font-medium">
-              <span>14 Walk-in</span>
-              <span>5 Existing Members</span>
+              <span>{walkInCount} Walk-in</span>
+              <span>{memberCount} Registered</span>
             </div>
           </div>
 
@@ -335,21 +195,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden flex">
               <div
                 className="bg-blue-600 h-full rounded-l-full transition-all duration-500"
-                style={{ width: '74%' }}
+                style={{ width: `${walkInPct}%` }}
               ></div>
               <div
                 className="bg-sky-300 h-full rounded-r-full transition-all duration-500"
-                style={{ width: '26%' }}
+                style={{ width: `${memberPct}%` }}
               ></div>
             </div>
             <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                Walk-in 74%
+                Walk-in {walkInPct}%
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-sky-300"></span>
-                Registered 26%
+                Registered {memberPct}%
               </span>
             </div>
           </div>
@@ -360,7 +220,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <div>
             <div className="flex items-start justify-between">
               <span className="text-[11px] font-bold tracking-wider uppercase text-slate-500">
-                MONTHLY SALES (OCT)
+                TOTAL SALES TURNOVER
               </span>
               <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                 <Flag className="w-5 h-5" />
@@ -368,12 +228,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
             <div className="mt-2">
               <span className="text-3xl font-black text-slate-900 tracking-tight font-sans">
-                ₹8,42,300
+                ₹{monthlySales.toLocaleString('en-IN')}
               </span>
             </div>
             <div className="flex items-center justify-between text-xs mt-2">
-              <span className="font-bold text-emerald-700">84.2% Achieved</span>
-              <span className="text-slate-500">Goal: ₹10,00,000</span>
+              <span className="font-bold text-emerald-700">{monthlyPercent}% of Target</span>
+              <span className="text-slate-500">Target: ₹10,00,000</span>
             </div>
           </div>
 
@@ -381,13 +241,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <div className="mt-4 space-y-2">
             <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
               <div
-                className="bg-emerald-800 h-full rounded-full transition-all duration-500"
-                style={{ width: '84.2%' }}
+                className="bg-emerald-600 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, monthlyPercent)}%` }}
               ></div>
             </div>
             <div className="flex items-center justify-between text-[11px] text-slate-500">
-              <span>7 days remaining</span>
-              <span className="font-bold text-slate-800">₹1,57,700 left</span>
+              <span>Active Period</span>
+              <span className="font-bold text-slate-800">
+                ₹{Math.max(0, monthlyTarget - monthlySales).toLocaleString('en-IN')} to target
+              </span>
             </div>
           </div>
         </div>
@@ -532,48 +394,54 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 <h2 className="text-base font-bold text-slate-900">Low Stock Alert</h2>
               </div>
               <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                4 Critical
+                {lowStockItems.length} Critical
               </span>
             </div>
 
             {/* Critical List */}
             <div className="divide-y divide-slate-100">
-              {lowStockItems.map((item) => {
-                const isReordered = reorderedItems.includes(item.id);
-                return (
-                  <div key={item.id} className="py-3.5 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-900 truncate">{item.name}</p>
-                      <p className="text-[11px] text-slate-400 truncate">{item.subtitle}</p>
-                    </div>
+              {lowStockItems.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400">
+                  All inventory items are well above safety threshold!
+                </div>
+              ) : (
+                lowStockItems.map((item) => {
+                  const isReordered = reorderedItems.includes(item.id);
+                  return (
+                    <div key={item.id} className="py-3.5 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 truncate">{item.name}</p>
+                        <p className="text-[11px] text-slate-400 truncate">{item.subtitle}</p>
+                      </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="px-2 py-1 bg-rose-50 text-rose-700 rounded-md text-[11px] font-bold">
-                        {item.stockLeft} Left
-                      </span>
-                      <button
-                        onClick={() => handleReorder(item.id, item.name)}
-                        disabled={isReordered}
-                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                          isReordered
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
-                        }`}
-                      >
-                        {isReordered ? (
-                          <>
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Ordered
-                          </>
-                        ) : (
-                          <>
-                            <ShoppingCart className="w-3.5 h-3.5" /> Reorder
-                          </>
-                        )}
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="px-2 py-1 bg-rose-50 text-rose-700 rounded-md text-[11px] font-bold">
+                          {item.stockLeft} Left
+                        </span>
+                        <button
+                          onClick={() => handleReorder(item.id, item.name)}
+                          disabled={isReordered}
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                            isReordered
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
+                          }`}
+                        >
+                          {isReordered ? (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Ordered
+                            </>
+                          ) : (
+                            <>
+                              <ShoppingCart className="w-3.5 h-3.5" /> Reorder
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -582,7 +450,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             onClick={() => onNavigateTab('products')}
             className="w-full mt-4 py-2.5 bg-blue-50/70 hover:bg-blue-100/80 text-blue-700 font-bold text-xs rounded-xl transition-colors cursor-pointer text-center"
           >
-            View All Inventory ({products.length > 0 ? products.length : 142} SKUs)
+            View All Inventory ({products.length} SKUs in Database)
           </button>
         </div>
       </div>
@@ -625,87 +493,97 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
-              {displayedBills.map((bill) => {
-                const dateObj = new Date(bill.date);
-                const timeStr = dateObj.toLocaleTimeString('en-IN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: true,
-                });
-                const firstItem = bill.items[0];
-                const itemsSummary = firstItem
-                  ? `${firstItem.name} ${firstItem.model ? `+ ${firstItem.model}` : ''}`
-                  : 'Items included';
+              {displayedBills.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-10 text-center text-slate-400">
+                    No billing records yet in database. Issue your first bill with "New Bill"!
+                  </td>
+                </tr>
+              ) : (
+                displayedBills.map((bill) => {
+                  const dateObj = new Date(bill.date);
+                  const timeStr = dateObj.toLocaleTimeString('en-IN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true,
+                  });
+                  const firstItem = bill.items[0];
+                  const itemsSummary = firstItem
+                    ? `${firstItem.name} ${firstItem.model ? `+ ${firstItem.model}` : ''}`
+                    : 'Items included';
 
-                return (
-                  <tr
-                    key={bill.id || bill.invoiceNumber}
-                    className="hover:bg-slate-50/70 transition-colors"
-                  >
-                    {/* Invoice Number */}
-                    <td
-                      className="py-3.5 px-5 font-bold font-mono text-blue-600 cursor-pointer hover:underline"
-                      onClick={() => onViewBill(bill)}
+                  return (
+                    <tr
+                      key={bill.id || bill.invoiceNumber}
+                      className="hover:bg-slate-50/70 transition-colors"
                     >
-                      {bill.invoiceNumber}
-                    </td>
-
-                    {/* Time */}
-                    <td className="py-3.5 px-4 text-slate-500 font-medium whitespace-nowrap">
-                      {timeStr || '11:42 AM'}
-                    </td>
-
-                    {/* Customer & Phone */}
-                    <td className="py-3.5 px-4">
-                      <p className="font-bold text-slate-900">{bill.customer.name}</p>
-                      <p className="text-[11px] text-slate-400 font-mono">
-                        {bill.customer.phone || '+91 98401 23456'}
-                      </p>
-                    </td>
-
-                    {/* Items Summary */}
-                    <td className="py-3.5 px-4 text-slate-700 max-w-xs truncate">
-                      {itemsSummary}
-                    </td>
-
-                    {/* Amount */}
-                    <td className="py-3.5 px-4 text-right font-black text-slate-900 font-mono">
-                      ₹{bill.grandTotal?.toLocaleString('en-IN')}
-                    </td>
-
-                    {/* Payment Mode Badge */}
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="px-2 py-0.5 rounded-md text-[11px] font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200/60">
-                        {bill.paymentMode || 'UPI'}
-                      </span>
-                    </td>
-
-                    {/* Status Badge */}
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="px-2 py-0.5 rounded-md text-[11px] font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                        PAID
-                      </span>
-                    </td>
-
-                    {/* Action */}
-                    <td className="py-3.5 px-5 text-right">
-                      <button
+                      {/* Invoice Number */}
+                      <td
+                        className="py-3.5 px-5 font-bold font-mono text-blue-600 cursor-pointer hover:underline"
                         onClick={() => onViewBill(bill)}
-                        className="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer inline-flex items-center gap-1"
                       >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+                        {bill.invoiceNumber}
+                      </td>
+
+                      {/* Time */}
+                      <td className="py-3.5 px-4 text-slate-500 font-medium whitespace-nowrap">
+                        {timeStr || 'Recent'}
+                      </td>
+
+                      {/* Customer & Phone */}
+                      <td className="py-3.5 px-4">
+                        <p className="font-bold text-slate-900">{bill.customer.name}</p>
+                        <p className="text-[11px] text-slate-400 font-mono">
+                          {bill.customer.phone || 'Counter Sale'}
+                        </p>
+                      </td>
+
+                      {/* Items Summary */}
+                      <td className="py-3.5 px-4 text-slate-700 max-w-xs truncate">
+                        {itemsSummary}
+                      </td>
+
+                      {/* Amount */}
+                      <td className="py-3.5 px-4 text-right font-black text-slate-900 font-mono">
+                        ₹{bill.grandTotal?.toLocaleString('en-IN')}
+                      </td>
+
+                      {/* Payment Mode Badge */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200/60">
+                          {bill.paymentMode || 'UPI'}
+                        </span>
+                      </td>
+
+                      {/* Status Badge */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                          PAID
+                        </span>
+                      </td>
+
+                      {/* Action */}
+                      <td className="py-3.5 px-5 text-right">
+                        <button
+                          onClick={() => onViewBill(bill)}
+                          className="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer inline-flex items-center gap-1"
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Table Bottom Bar */}
         <div className="px-6 py-3.5 bg-slate-50/50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
-          <span>Showing latest 5 of 19 bills today</span>
+          <span>
+            Showing latest {displayedBills.length} of {bills.length} bills in database
+          </span>
           <div className="flex items-center gap-2">
             <span className="font-medium text-slate-600">Printer: Ready (3-inch Thermal)</span>
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>

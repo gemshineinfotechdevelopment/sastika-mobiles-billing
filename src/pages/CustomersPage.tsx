@@ -19,7 +19,6 @@ import {
   X,
 } from 'lucide-react';
 import type { Customer } from '../types';
-import { INITIAL_CUSTOMERS } from '../data/initialCustomers';
 import { CollectPaymentModal } from '../components/modals/CollectPaymentModal';
 import { CustomerLedgerModal } from '../components/modals/CustomerLedgerModal';
 import { api } from '../services/api';
@@ -35,11 +34,11 @@ type SortOption = 'default' | 'highest_sales' | 'lowest_sales' | 'highest_due' |
 export const CustomersPage: React.FC<CustomersPageProps> = ({
   onOpenAddCustomer,
 }) => {
-  const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<TabFilter>('all');
   const [sortOption, setSortOption] = useState<SortOption>('default');
-  const [selectedIds, setSelectedIds] = useState<string[]>(['#CUST-9840']); // First row (Suresh Kumar) selected as in screenshot
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
@@ -66,43 +65,19 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onOpenAddCustomer]);
 
-  // Try to load any extra customers from backend if available
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      try {
-        const res = await api.getCustomers();
-        if (res.customers && res.customers.length > 0) {
-          // Merge API customers with rich initial mock patrons
-          const apiMap = new Map(res.customers.map((c) => [c.phone, c]));
-          const merged = INITIAL_CUSTOMERS.map((init) => {
-            if (apiMap.has(init.phone)) {
-              return { ...init, ...apiMap.get(init.phone) };
-            }
-            return init;
-          });
-          // Add any newly registered ones from API
-          res.customers.forEach((c) => {
-            if (!merged.some((m) => m.phone === c.phone)) {
-              merged.push({
-                ...c,
-                id: c.id || `#CUST-${Math.floor(1000 + Math.random() * 9000)}`,
-                tier: c.gstin ? 'VIP MEMBER' : 'REGULAR',
-                lifetimeSales: 0,
-                billsCount: 0,
-                khataBalance: 0,
-                khataStatus: 'settled',
-                loyaltyPoints: 10,
-                avatarBg: 'bg-blue-600 text-white',
-                initials: c.name.slice(0, 2).toUpperCase(),
-              });
-            }
-          });
-          setCustomers(merged);
-        }
-      } catch {
-        // Run with rich initial customers
+  // Load live customers from database
+  const fetchCustomers = async () => {
+    try {
+      const res = await api.getCustomers();
+      if (res.customers) {
+        setCustomers(res.customers);
       }
-    };
+    } catch (err) {
+      console.warn('Failed to fetch customers from database:', err);
+    }
+  };
+
+  useEffect(() => {
     fetchCustomers();
   }, []);
 
@@ -181,7 +156,20 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   };
 
   // Payment settled handler
-  const handlePaymentSettled = (customerId: string, amountPaid: number) => {
+  const handlePaymentSettled = async (customerId: string, amountPaid: number) => {
+    try {
+      await api.collectCustomerPayment(customerId, {
+        amount: amountPaid,
+        paymentMode: 'Cash / Counter',
+        notes: 'Khata partial/full settlement',
+      });
+      const refreshed = await api.getCustomers();
+      if (refreshed.customers) {
+        setCustomers(refreshed.customers);
+      }
+    } catch (err) {
+      console.warn('API collect payment notice:', err);
+    }
     setCustomers((prev) =>
       prev.map((c) => {
         if (c.id === customerId) {

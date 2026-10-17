@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { X, Plus, Trash2, CheckCircle2, ShieldCheck, Smartphone } from 'lucide-react';
-import type { PurchaseBill } from '../../types';
-import { INITIAL_SUPPLIERS } from '../../data/initialPurchases';
+import type { PurchaseBill, Supplier } from '../../types';
 
 interface NewPurchaseBillModalProps {
   isOpen: boolean;
   onClose: () => void;
   onPurchaseAdded: (bill: PurchaseBill) => void;
+  suppliers?: Supplier[];
 }
 
 interface NewItemRow {
@@ -22,8 +22,11 @@ export const NewPurchaseBillModal: React.FC<NewPurchaseBillModalProps> = ({
   isOpen,
   onClose,
   onPurchaseAdded,
+  suppliers = [],
 }) => {
-  const [selectedSupplierId, setSelectedSupplierId] = useState<string>(INITIAL_SUPPLIERS[0].id);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>(
+    suppliers[0]?.id || 'SUP-01'
+  );
   const [invoiceNumber, setInvoiceNumber] = useState<string>('SUP-INV-' + Math.floor(1000 + Math.random() * 9000));
   const [billDate, setBillDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [paidAmount, setPaidAmount] = useState<number>(0);
@@ -52,7 +55,18 @@ export const NewPurchaseBillModal: React.FC<NewPurchaseBillModalProps> = ({
 
   if (!isOpen) return null;
 
-  const currentSupplier = INITIAL_SUPPLIERS.find((s) => s.id === selectedSupplierId) || INITIAL_SUPPLIERS[0];
+  const fallbackSupplier: Supplier = {
+    id: 'SUP-01',
+    name: 'Supreme Tele Distribution',
+    address: 'Ritchie St, Chennai',
+    phone: '+91 94441 55221',
+    gstin: '33AABCS1234F1Z1',
+  };
+
+  const currentSupplier =
+    suppliers.find((s) => s.id === selectedSupplierId) ||
+    suppliers[0] ||
+    fallbackSupplier;
 
   const calculateSubtotal = () =>
     items.reduce((acc, it) => acc + (it.quantity * it.unitCost), 0);
@@ -189,7 +203,7 @@ export const NewPurchaseBillModal: React.FC<NewPurchaseBillModalProps> = ({
                 onChange={(e) => setSelectedSupplierId(e.target.value)}
                 className="w-full text-xs font-semibold px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
               >
-                {INITIAL_SUPPLIERS.map((s) => (
+                {(suppliers.length ? suppliers : [fallbackSupplier]).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>

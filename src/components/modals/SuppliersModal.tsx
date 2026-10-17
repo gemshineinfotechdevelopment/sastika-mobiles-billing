@@ -1,7 +1,6 @@
 import React from 'react';
 import { X, Building2, Phone, MapPin, ExternalLink, ShieldCheck } from 'lucide-react';
 import type { Supplier } from '../../types';
-import { INITIAL_SUPPLIERS } from '../../data/initialPurchases';
 
 interface SuppliersModalProps {
   isOpen: boolean;
@@ -12,7 +11,7 @@ interface SuppliersModalProps {
 export const SuppliersModal: React.FC<SuppliersModalProps> = ({
   isOpen,
   onClose,
-  suppliers = INITIAL_SUPPLIERS,
+  suppliers = [],
 }) => {
   if (!isOpen) return null;
 

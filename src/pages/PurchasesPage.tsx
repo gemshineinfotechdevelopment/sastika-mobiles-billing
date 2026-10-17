@@ -21,7 +21,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import type { PurchaseBill, Supplier } from '../types';
-import { INITIAL_PURCHASE_BILLS, INITIAL_SUPPLIERS } from '../data/initialPurchases';
+import { api } from '../services/api';
 import { NewPurchaseBillModal } from '../components/modals/NewPurchaseBillModal';
 import { InwardSlipModal } from '../components/modals/InwardSlipModal';
 import { SuppliersModal } from '../components/modals/SuppliersModal';
@@ -30,8 +30,8 @@ import { SettleSupplierPaymentModal } from '../components/modals/SettleSupplierP
 type TabStatus = 'all' | 'paid' | 'due' | 'draft';
 
 export const PurchasesPage: React.FC = () => {
-  const [bills, setBills] = useState<PurchaseBill[]>(INITIAL_PURCHASE_BILLS);
-  const [suppliers] = useState<Supplier[]>(INITIAL_SUPPLIERS);
+  const [bills, setBills] = useState<PurchaseBill[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusTab, setStatusTab] = useState<TabStatus>('all');
   const [selectedSupplierFilter, setSelectedSupplierFilter] = useState<string>('all');
@@ -60,6 +60,24 @@ export const PurchasesPage: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Fetch live purchases and suppliers from database
+  const fetchPurchasesData = async () => {
+    try {
+      const [purchasesRes, suppliersRes] = await Promise.all([
+        api.getPurchases(),
+        api.getSuppliers(),
+      ]);
+      setBills(purchasesRes.purchases || []);
+      setSuppliers(suppliersRes.suppliers || []);
+    } catch (err) {
+      console.warn('Failed to load purchases from database:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchPurchasesData();
   }, []);
 
   // Filter logic
@@ -94,10 +112,16 @@ export const PurchasesPage: React.FC = () => {
   }, [bills, searchTerm, statusTab, selectedSupplierFilter]);
 
   // Payment settlement callback
-  const handlePaymentSettled = (billId: string, amount: number) => {
+  const handlePaymentSettled = async (billId: string, amount: number) => {
+    try {
+      await api.settlePurchasePayment(billId, amount);
+      await fetchPurchasesData();
+    } catch (err) {
+      console.warn('API settle purchase notice:', err);
+    }
     setBills((prev) =>
       prev.map((b) => {
-        if (b.id === billId) {
+        if (b.id === billId || b.supplierInvoiceNumber === billId) {
           const newDue = Math.max(0, b.balanceDue - amount);
           const newPaid = b.paidAmount + amount;
           return {
@@ -116,7 +140,13 @@ export const PurchasesPage: React.FC = () => {
   };
 
   // Add new bill callback
-  const handlePurchaseAdded = (newBill: PurchaseBill) => {
+  const handlePurchaseAdded = async (newBill: PurchaseBill) => {
+    try {
+      await api.createPurchase(newBill);
+      await fetchPurchasesData();
+    } catch (err) {
+      console.warn('API purchase add notice:', err);
+    }
     setBills((prev) => [newBill, ...prev]);
     setShowTopBanner(true);
     setToastMessage(`Inward consignment ${newBill.id} recorded and synced to stock!`);
@@ -748,6 +778,7 @@ export const PurchasesPage: React.FC = () => {
         isOpen={showNewBillModal}
         onClose={() => setShowNewBillModal(false)}
         onPurchaseAdded={handlePurchaseAdded}
+        suppliers={suppliers}
       />
 
       {/* Inward Slip Document Modal */}

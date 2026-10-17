@@ -51,159 +51,62 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Default product catalog matching screenshot
-  const defaultCatalog: PosProduct[] = [
-    {
-      id: 'pos-1',
-      name: 'Redmi Note 13 5G',
-      subtitle: '8GB/256GB - Prism Gold • HSN: 8517',
-      category: 'Smartphones',
-      price: 17999,
-      stock: 8,
-      hsn: '8517',
-      gstRate: 18,
-      type: 'IMEI TRACKED',
-      image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=300&auto=format&fit=crop&q=80',
-      imeiList: ['864219058129381', '864219058129382', '864219058129383'],
-    },
-    {
-      id: 'pos-2',
-      name: 'Samsung Galaxy M34 5G',
-      subtitle: '6GB/128GB - Waterfall Blue • HSN: 8517',
-      category: 'Smartphones',
-      price: 14499,
-      stock: 8,
-      hsn: '8517',
-      gstRate: 18,
-      type: 'IMEI TRACKED',
-      image: 'https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=300&auto=format&fit=crop&q=80',
-      imeiList: ['359124089123456', '359124089123457'],
-    },
-    {
-      id: 'pos-3',
-      name: 'Apple 20W USB-C Power Adapter',
-      subtitle: 'Original Box Pack • HSN: 8504',
-      category: 'Chargers & Cables',
-      price: 1899,
-      stock: 18,
-      hsn: '8504',
-      gstRate: 18,
-      type: 'BARCODE',
-      image: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=300&auto=format&fit=crop&q=80',
-    },
-    {
-      id: 'pos-4',
-      name: 'boAt Rockerz 255 Pro+ Neckband',
-      subtitle: 'Active Black • Fast Charge • BT 5.2',
-      category: 'Audio & Earbuds',
-      price: 1299,
-      stock: 12,
-      hsn: '8518',
-      gstRate: 18,
-      type: 'BARCODE',
-      icon: 'audio',
-    },
-    {
-      id: 'pos-5',
-      name: 'Noise ColorFit Pulse 2 Max',
-      subtitle: '1.85" Display • BT Calling • Jet Black',
-      category: 'Cases & Covers',
-      price: 1599,
-      stock: 7,
-      hsn: '8517',
-      gstRate: 18,
-      type: 'BARCODE',
-      icon: 'watch',
-    },
-    {
-      id: 'pos-6',
-      name: 'Super D 9H Tempered Glass',
-      subtitle: 'Universal Edge-to-Edge Guard',
-      category: 'Tempered Glass',
-      price: 199,
-      stock: 45,
-      hsn: '7007',
-      gstRate: 18,
-      type: 'BARCODE',
-      icon: 'glass',
-    },
-  ];
+  // Live POS product catalog derived 100% from MongoDB Products
+  const mergedCatalog: PosProduct[] = (serverProducts || []).map((sp) => {
+    let cat: PosProduct['category'] = 'Smartphones';
+    const c = (sp.category || '').toLowerCase();
+    if (c.includes('charger') || c.includes('cable') || c.includes('adapter')) {
+      cat = 'Chargers & Cables';
+    } else if (c.includes('audio') || c.includes('earbud') || c.includes('headphone') || c.includes('neckband')) {
+      cat = 'Audio & Earbuds';
+    } else if (c.includes('case') || c.includes('cover')) {
+      cat = 'Cases & Covers';
+    } else if (c.includes('glass') || c.includes('tempered') || c.includes('screen')) {
+      cat = 'Tempered Glass';
+    }
 
-  // Merge server products if any
-  const mergedCatalog: PosProduct[] = [
-    ...defaultCatalog,
-    ...serverProducts
-      .filter((sp) => !defaultCatalog.some((dp) => dp.name.toLowerCase() === sp.name.toLowerCase()))
-      .map((sp) => ({
-        id: sp.id,
-        name: sp.name,
-        subtitle: `${sp.model || sp.category} • HSN: ${sp.hsnCode || '8517'}`,
-        category: (sp.category === 'Audio' ? 'Audio & Earbuds' : sp.category === 'Accessories' ? 'Chargers & Cables' : 'Smartphones') as any,
-        price: sp.price,
-        stock: sp.stock,
-        hsn: sp.hsnCode || '8517',
-        gstRate: sp.gstRate || 18,
-        type: sp.imeiNumbers && sp.imeiNumbers.length > 0 ? ('IMEI TRACKED' as const) : ('BARCODE' as const),
-        imeiList: sp.imeiNumbers,
-        icon: 'phone' as const,
-      })),
-  ];
-
-  // Customer state: default to Registered Customer "Suresh Kumar" as in screenshot
-  const [customerMode, setCustomerMode] = useState<'walkin' | 'registered'>('registered');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer>({
-    name: 'Suresh Kumar',
-    phone: '+91 98481 23456',
-    address: 'Bazaar Street, Madurai',
+    return {
+      id: sp.id,
+      name: sp.name,
+      subtitle: `${sp.model || sp.variant || sp.brand || ''} • HSN: ${sp.hsnCode || '8517'}`,
+      category: cat,
+      price: sp.price,
+      stock: sp.stock,
+      hsn: sp.hsnCode || '8517',
+      gstRate: sp.gstRate || 18,
+      type: sp.imeiNumbers && sp.imeiNumbers.length > 0 ? ('IMEI TRACKED' as const) : ('BARCODE' as const),
+      image: sp.imageUrl,
+      imeiList: sp.imeiNumbers,
+      icon: cat === 'Smartphones' ? 'phone' : cat === 'Audio & Earbuds' ? 'audio' : 'charger',
+    };
   });
 
-  // Active invoice items matching screenshot:
-  // 1. Redmi Note 13 5G (Prism Gold, IMEI: 864219058129381, 1 qty, 17,999)
-  // 2. Apple 20W USB-C Adapter (Box pack, 1 qty, 1,899)
-  // 3. Super D Matte Tempered Glass (2 qty, 398)
-  const [cartItems, setCartItems] = useState<BillItem[]>([
-    {
-      productId: 'pos-1',
-      name: 'Redmi Note 13 5G',
-      model: 'Prism Gold (6GB/256GB)',
-      imei: '864219058129381',
-      quantity: 1,
-      unitPrice: 17999,
-      gstRate: 18,
-      taxableAmount: 15253.39,
-      cgst: 1372.8,
-      sgst: 1372.8,
-      total: 17999,
-    },
-    {
-      productId: 'pos-3',
-      name: 'Apple 20W USB-C Adapter',
-      model: 'HSN: 8504 • Box Pack',
-      quantity: 1,
-      unitPrice: 1899,
-      gstRate: 18,
-      taxableAmount: 1609.32,
-      cgst: 144.84,
-      sgst: 144.84,
-      total: 1899,
-    },
-    {
-      productId: 'pos-6',
-      name: 'Super D Matte Tempered Glass',
-      model: 'Universal Edge Guard (₹199 each)',
-      quantity: 2,
-      unitPrice: 199,
-      gstRate: 18,
-      taxableAmount: 337.29,
-      cgst: 30.35,
-      sgst: 30.35,
-      total: 398,
-    },
-  ]);
+  // Customer state: loaded from MongoDB database
+  const [customerList, setCustomerList] = useState<Customer[]>([]);
+  const [customerMode, setCustomerMode] = useState<'walkin' | 'registered'>('walkin');
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer>({
+    name: 'Walk-in Customer',
+    phone: 'Counter Sale',
+  });
+
+  useEffect(() => {
+    api
+      .getCustomers()
+      .then((res) => {
+        if (res && res.customers && res.customers.length > 0) {
+          setCustomerList(res.customers);
+          setSelectedCustomer(res.customers[0]);
+        }
+      })
+      .catch((err) => console.warn('Could not load customers for billing:', err));
+  }, []);
+
+  // Active invoice items start empty (live from user scan / click)
+  const [cartItems, setCartItems] = useState<BillItem[]>([]);
 
   // Financial Discount & Payment Mode
-  const [discount, setDiscount] = useState<number>(500); // Festival offer -₹500 as in screenshot
-  const [discountLabel, setDiscountLabel] = useState('Shop Discount (Festival Offer)');
+  const [discount, setDiscount] = useState<number>(0);
+  const [discountLabel, setDiscountLabel] = useState('Store Discount');
   const [paymentMode, setPaymentMode] = useState<'UPI' | 'Cash' | 'Card' | 'Credit'>('UPI');
   const [submitting, setSubmitting] = useState(false);
 
@@ -357,13 +260,15 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       const res = await api.createBill(billData);
       if (res.success && res.bill) {
         onInvoiceCreated(res.bill);
+        setCartItems([]);
+        setDiscount(0);
       }
     } catch (err) {
       console.warn('Backend offline, generating local bill preview:', err);
       // Fallback local bill so user can print instantly
       const localBill: Bill = {
-        id: `INV-2024-${Math.floor(1043 + Math.random() * 50)}`,
-        invoiceNumber: `INV-2024-1043`,
+        id: `INV-${Date.now().toString().slice(-6)}`,
+        invoiceNumber: `INV-2024-${Date.now().toString().slice(-4)}`,
         date: new Date().toISOString(),
         customer:
           customerMode === 'registered'
@@ -379,6 +284,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         notes: 'Thanks for shopping at Sastika Mobiles!',
       };
       onInvoiceCreated(localBill);
+      setCartItems([]);
+      setDiscount(0);
     } finally {
       setSubmitting(false);
     }
@@ -605,20 +512,22 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                     <select
                       value={selectedCustomer.name}
                       onChange={(e) => {
-                        const name = e.target.value;
-                        if (name === 'Vignesh R') {
-                          setSelectedCustomer({ name: 'Vignesh R', phone: '+91 98401 23456' });
-                        } else if (name === 'Deepak Kumar') {
-                          setSelectedCustomer({ name: 'Deepak Kumar', phone: '+91 97890 88211' });
-                        } else {
-                          setSelectedCustomer({ name: 'Suresh Kumar', phone: '+91 98481 23456' });
+                        const cust = customerList.find((c) => c.name === e.target.value);
+                        if (cust) {
+                          setSelectedCustomer(cust);
                         }
                       }}
                       className="font-bold text-xs text-slate-900 bg-transparent border-0 cursor-pointer p-0 focus:ring-0 focus:outline-none"
                     >
-                      <option value="Suresh Kumar">Suresh Kumar</option>
-                      <option value="Vignesh R">Vignesh R</option>
-                      <option value="Deepak Kumar">Deepak Kumar</option>
+                      {customerList.length === 0 ? (
+                        <option value="No Customers">No registered customers</option>
+                      ) : (
+                        customerList.map((c) => (
+                          <option key={c.id || c.name} value={c.name}>
+                            {c.name}
+                          </option>
+                        ))
+                      )}
                     </select>
                     <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                       Regular

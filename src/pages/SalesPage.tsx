@@ -19,7 +19,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import type { Bill } from '../types';
-import { INITIAL_BILLS } from '../data/initialBills';
+import { api } from '../services/api';
 import { DailyZReportModal } from '../components/modals/DailyZReportModal';
 import { SendReminderModal } from '../components/modals/SendReminderModal';
 import { VoidBillModal } from '../components/modals/VoidBillModal';
@@ -31,30 +31,15 @@ interface SalesPageProps {
 }
 
 export const SalesPage: React.FC<SalesPageProps> = ({
-  bills: propBills,
+  bills: propBills = [],
   onSelectBill,
   onNewBill,
 }) => {
-  // Merge propBills with initialBills to ensure the full rich dataset is available
-  const [billsList, setBillsList] = useState<Bill[]>(() => {
-    if (propBills && propBills.length > 0) {
-      // If props only have 1 mock bill, merge initial bills
-      if (propBills.length === 1 && propBills[0].id.includes('2026')) {
-        return [...INITIAL_BILLS, ...propBills];
-      }
-      return propBills;
-    }
-    return INITIAL_BILLS;
-  });
+  // Use live bills list from database
+  const [billsList, setBillsList] = useState<Bill[]>(propBills);
 
   useEffect(() => {
-    if (propBills && propBills.length > 0) {
-      if (propBills.length === 1 && propBills[0].id.includes('2026')) {
-        setBillsList([...INITIAL_BILLS, ...propBills]);
-      } else {
-        setBillsList(propBills);
-      }
-    }
+    setBillsList(propBills || []);
   }, [propBills]);
 
   // Filters state
@@ -139,17 +124,31 @@ export const SalesPage: React.FC<SalesPageProps> = ({
     return filteredBills.slice(start, start + pageSize);
   }, [filteredBills, currentPage, pageSize]);
 
-  // Metrics
-  const grossSalesToday = 84650.0;
-  const pendingBalancesKhata = 18450.0;
-  const cancelledReversals = 4200.0;
+  // Real dynamic metrics calculated from database bills
+  const grossSalesToday = useMemo(() => {
+    return billsList
+      .filter((b) => !b.isCancelled && b.status !== 'CANCELLED')
+      .reduce((acc, b) => acc + (b.grandTotal || 0), 0);
+  }, [billsList]);
 
-  // Counts for pills
-  const totalCount = 34;
-  const paidCount = 26;
-  const dueCount = 6;
-  const draftCount = 1;
-  const cancelledCount = 1;
+  const pendingBalancesKhata = useMemo(() => {
+    return billsList
+      .filter((b) => !b.isCancelled && b.status !== 'CANCELLED')
+      .reduce((acc, b) => acc + (b.balanceDue || 0), 0);
+  }, [billsList]);
+
+  const cancelledReversals = useMemo(() => {
+    return billsList
+      .filter((b) => b.isCancelled || b.status === 'CANCELLED')
+      .reduce((acc, b) => acc + (b.grandTotal || 0), 0);
+  }, [billsList]);
+
+  // Counts for filter pills computed dynamically from database
+  const totalCount = billsList.length;
+  const paidCount = billsList.filter((b) => b.status === 'PAID').length;
+  const dueCount = billsList.filter((b) => b.status === 'PARTIAL' || (b.balanceDue || 0) > 0).length;
+  const draftCount = billsList.filter((b) => b.status === 'DRAFT').length;
+  const cancelledCount = billsList.filter((b) => b.status === 'CANCELLED' || Boolean(b.isCancelled)).length;
 
   // Due bills list for reminder modal (Khata accounts, excluding unbilled drafts)
   const dueBillsList = useMemo(() => {
@@ -223,16 +222,21 @@ export const SalesPage: React.FC<SalesPageProps> = ({
   };
 
   // Void Handler
-  const handleBillVoided = (billId: string, reason: string) => {
+  const handleBillVoided = async (billId: string, reason: string) => {
+    try {
+      await api.voidBill(billId, reason);
+    } catch (err) {
+      console.warn('API void notice:', err);
+    }
     setBillsList((prev) =>
       prev.map((b) => {
-        if (b.id === billId) {
+        if (b.id === billId || b.invoiceNumber === billId) {
           return {
             ...b,
             status: 'CANCELLED',
             isCancelled: true,
             voidReason: `Void Reason: ${reason}`,
-            stockRestoredText: `Reversed to Stock (${b.items.length} unit)`,
+            stockRestoredText: `Reversed to Stock (${b.items.length} units)`,
             paidAmount: 0,
             balanceDue: 0,
             tenderMode: 'Stock Restored',

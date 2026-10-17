@@ -16,24 +16,22 @@ import { AddProductModal } from './components/modals/AddProductModal';
 import { AddCustomerModal } from './components/modals/AddCustomerModal';
 import { api } from './services/api';
 import type { Bill, HealthResponse, Product } from './types';
-import { INITIAL_PRODUCTS } from './data/initialProducts';
-import { INITIAL_BILLS } from './data/initialBills';
 import { AlertCircle, X } from 'lucide-react';
 import './App.css';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<NavTab>('purchases');
+  const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [serverHealth, setServerHealth] = useState<HealthResponse | null>(null);
   const [serverLoading, setServerLoading] = useState(false);
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [bills, setBills] = useState<Bill[]>(INITIAL_BILLS);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [bills, setBills] = useState<Bill[]>([]);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [dismissOfflineBanner, setDismissOfflineBanner] = useState(false);
 
-  // Check health and load initial data
+  // Check health and load live data from database
   const loadServerHealth = async () => {
     setServerLoading(true);
     try {
@@ -52,14 +50,10 @@ export function App() {
         api.getProducts(),
         api.getBills(),
       ]);
-      if (prodsRes.products && prodsRes.products.length > 0) {
-        setProducts(prodsRes.products);
-      }
-      if (billsRes.bills && billsRes.bills.length > 0) {
-        setBills(billsRes.bills);
-      }
+      setProducts(prodsRes.products || []);
+      setBills(billsRes.bills || []);
     } catch (err) {
-      console.warn('Initial data load failed (backend might not be running yet):', err);
+      console.warn('Initial data load notice:', err);
     }
   };
 
