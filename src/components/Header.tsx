@@ -85,7 +85,7 @@ export const Header: React.FC<HeaderProps> = ({
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                   : 'bg-rose-50 text-rose-700 border-rose-200'
               }`}
-              title={serverHealth ? 'Server connected on port 5000' : 'Cannot reach backend server'}
+              title={serverHealth ? 'Backend API Connected' : 'Cannot reach backend server'}
             >
               <span className="relative flex h-2 w-2">
                 {serverHealth && (

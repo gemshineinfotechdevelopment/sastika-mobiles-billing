@@ -25,8 +25,8 @@ export type NavTab =
 interface SidebarProps {
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
-  mobileOpen: boolean;
-  setMobileOpen: (open: boolean) => void;
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
 }
 
 interface MenuItem {
@@ -38,8 +38,8 @@ interface MenuItem {
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
-  mobileOpen,
-  setMobileOpen,
+  isOpen,
+  setIsOpen,
 }) => {
   const shopName = import.meta.env.VITE_SHOP_NAME || 'SASTIKA MOBILES';
   const shopGstin = import.meta.env.VITE_SHOP_GSTIN || '33AAAAA0000A1Z5';
@@ -57,23 +57,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleSelectTab = (tab: NavTab) => {
     setActiveTab(tab);
-    setMobileOpen(false);
+    if (window.innerWidth < 1024) {
+      setIsOpen(false);
+    }
   };
 
   return (
     <>
       {/* Mobile Backdrop */}
-      {mobileOpen && (
+      {isOpen && (
         <div
           className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40 lg:hidden transition-opacity"
-          onClick={() => setMobileOpen(false)}
+          onClick={() => setIsOpen(false)}
         />
       )}
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-white border-r border-slate-200/90 flex flex-col justify-between transition-transform duration-200 ease-in-out lg:translate-x-0 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-white border-r border-slate-200/90 flex flex-col justify-between transition-transform duration-200 ease-in-out ${
+          isOpen ? 'translate-x-0 shadow-xl lg:shadow-none' : '-translate-x-full'
         }`}
       >
         {/* Top Header & Brand */}
@@ -95,10 +97,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* Close button for mobile */}
+          {/* Close button for all screen sizes */}
           <button
-            onClick={() => setMobileOpen(false)}
-            className="p-1.5 text-slate-400 hover:text-slate-600 lg:hidden rounded-lg hover:bg-slate-100"
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            title="Close navigation menu"
+            aria-label="Close navigation menu"
           >
             <X className="w-5 h-5" />
           </button>

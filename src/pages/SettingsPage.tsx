@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Printer,
   Save,
@@ -6,6 +6,7 @@ import {
   Receipt,
   CheckCircle2,
 } from 'lucide-react';
+import { api } from '../services/api';
 
 export const SettingsPage: React.FC = () => {
   const [shopName, setShopName] = useState('SASTIKA MOBILES');
@@ -15,43 +16,65 @@ export const SettingsPage: React.FC = () => {
   const [printerType, setPrinterType] = useState('3-inch Thermal (80mm)');
   const [footerNote, setFooterNote] = useState('Thank you for shopping with Sastika Mobiles! Goods once sold can be exchanged within 7 days with original invoice.');
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    api.getSettings()
+      .then((res) => {
+        if (res.success && res.settings) {
+          const s = res.settings as Record<string, any>;
+          if (s.shopName) setShopName(s.shopName);
+          if (s.gstin) setGstin(s.gstin);
+          if (s.phone) setPhone(s.phone);
+          if (s.address) setAddress(s.address);
+          if (s.thermalPrinter?.paperSize) setPrinterType(s.thermalPrinter.paperSize);
+          if (s.thermalPrinter?.printFooterNote) setFooterNote(s.thermalPrinter.printFooterNote);
+        }
+      })
+      .catch((err) => console.warn('Could not load backend settings:', err));
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setSaving(true);
+    try {
+      await api.updateSettings({
+        shopName,
+        gstin,
+        phone,
+        address,
+        thermalPrinter: {
+          paperSize: printerType,
+          printFooterNote: footerNote,
+        },
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      console.error('Failed to save settings:', err);
+      alert('Failed to save settings to server');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="space-y-5 animate-in fade-in duration-150">
-      {/* 1. Header with Breadcrumbs matching all other views */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      {/* 1. Clean Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="text-[10px] sm:text-[11px] font-bold tracking-wider uppercase text-slate-400 flex flex-wrap items-center gap-1.5 mb-1 whitespace-nowrap">
-            <span>RETAIL OS</span>
-            <span className="text-slate-300">›</span>
-            <span>SYSTEM CONFIGURATION</span>
-            <span className="text-slate-300">›</span>
-            <span className="text-blue-600 font-extrabold">STORE &amp; HARDWARE SETTINGS</span>
-          </div>
-
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              Store &amp; Hardware Settings
-            </h1>
-            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
-              ACTIVE PROFILE
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Configure shop header details, GSTIN tax credentials, thermal invoice print formats, and hardware connectivity.
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+            Store & Bill Settings
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Configure shop name, GSTIN, mobile number, and invoice receipt footer
           </p>
         </div>
 
         {saved && (
-          <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs font-semibold shadow-2xs animate-in fade-in">
+          <div className="p-2.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs font-semibold shadow-2xs animate-in fade-in">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Store settings saved successfully!</span>
+            <span>Settings saved successfully!</span>
           </div>
         )}
       </div>
@@ -148,10 +171,11 @@ export const SettingsPage: React.FC = () => {
 
               <button
                 type="submit"
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer active:scale-98"
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer active:scale-98"
               >
                 <Save className="w-4 h-4" />
-                <span>Save Preferences</span>
+                <span>{saving ? 'Saving...' : 'Save Preferences'}</span>
               </button>
             </div>
           </form>

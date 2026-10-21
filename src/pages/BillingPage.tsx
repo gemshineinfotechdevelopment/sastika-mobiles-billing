@@ -14,7 +14,9 @@ import {
   Headphones,
   Watch,
   Shield,
+  Zap,
   X,
+  Receipt,
 } from 'lucide-react';
 import type { Bill, BillItem, Customer, Product } from '../types';
 import { api } from '../services/api';
@@ -35,7 +37,6 @@ interface PosProduct {
   hsn: string;
   gstRate: number;
   type: 'IMEI TRACKED' | 'BARCODE';
-  image?: string;
   icon?: 'phone' | 'charger' | 'audio' | 'watch' | 'glass';
   imeiList?: string[];
 }
@@ -75,9 +76,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       hsn: sp.hsnCode || '8517',
       gstRate: sp.gstRate || 18,
       type: sp.imeiNumbers && sp.imeiNumbers.length > 0 ? ('IMEI TRACKED' as const) : ('BARCODE' as const),
-      image: sp.imageUrl,
       imeiList: sp.imeiNumbers,
-      icon: cat === 'Smartphones' ? 'phone' : cat === 'Audio & Earbuds' ? 'audio' : 'charger',
+      icon: cat === 'Smartphones' ? 'phone' : cat === 'Audio & Earbuds' ? 'audio' : cat === 'Chargers & Cables' ? 'charger' : cat === 'Tempered Glass' ? 'glass' : 'phone',
     };
   });
 
@@ -110,13 +110,21 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const [paymentMode, setPaymentMode] = useState<'UPI' | 'Cash' | 'Card' | 'Credit'>('UPI');
   const [submitting, setSubmitting] = useState(false);
 
+  // Billing Details Panel visibility state: false by default, opens on "+ New Bill" click or F2
+  const [isBillOpen, setIsBillOpen] = useState(false);
+
   // IMEI Edit Modal State
   const [editingImeiIndex, setEditingImeiIndex] = useState<number | null>(null);
   const [tempImei, setTempImei] = useState('');
 
-  // Auto-scan hotkey listener F3 and Alt+C
+  // Auto-scan hotkey listener F2 (New Bill), F3 (Scan), and Alt+C (Customer)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F2') {
+        e.preventDefault();
+        setIsBillOpen(true);
+        setTimeout(() => scanInputRef.current?.focus(), 50);
+      }
       if (e.key === 'F3') {
         e.preventDefault();
         scanInputRef.current?.focus();
@@ -146,8 +154,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     };
   };
 
-  // Add product to cart
+  // Add product to cart (opens billing details if closed)
   const handleAddToCart = (product: PosProduct) => {
+    setIsBillOpen(true);
     setCartItems((prev) => {
       const existingIdx = prev.findIndex((item) => item.name === product.name);
       if (existingIdx !== -1) {
@@ -262,6 +271,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         onInvoiceCreated(res.bill);
         setCartItems([]);
         setDiscount(0);
+        setIsBillOpen(false);
       }
     } catch (err) {
       console.warn('Backend offline, generating local bill preview:', err);
@@ -286,6 +296,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       onInvoiceCreated(localBill);
       setCartItems([]);
       setDiscount(0);
+      setIsBillOpen(false);
     } finally {
       setSubmitting(false);
     }
@@ -312,11 +323,76 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   ];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-      {/* =========================================================================
-          LEFT SECTION (Span 7 on lg): Search Bar, Category Filters & Product Grid
-          ========================================================================= */}
-      <div className="lg:col-span-7 space-y-4">
+    <div className="space-y-4 animate-in fade-in duration-150">
+      {/* 1. Header with Title & New Bill Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+            Billing POS
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Quick mobile sales & retail checkout
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {!isBillOpen ? (
+            <button
+              type="button"
+              onClick={() => {
+                setIsBillOpen(true);
+                setTimeout(() => scanInputRef.current?.focus(), 50);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-all cursor-pointer active:scale-98"
+            >
+              <Receipt className="w-4 h-4" />
+              <span>New Bill</span>
+              <span className="bg-blue-700/80 text-blue-100 text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wide ml-0.5">
+                F2
+              </span>
+              {cartItems.length > 0 && (
+                <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ml-1">
+                  {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}
+                </span>
+              )}
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (cartItems.length === 0 || window.confirm('Start a fresh new bill? Current unsaved items will be cleared.')) {
+                    setCartItems([]);
+                    setDiscount(0);
+                    setTimeout(() => scanInputRef.current?.focus(), 50);
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs sm:text-sm font-semibold rounded-xl transition-all cursor-pointer shadow-2xs"
+              >
+                <Plus className="w-4 h-4 text-blue-600" />
+                <span>Reset / New Bill</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsBillOpen(false)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-semibold rounded-xl transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4 text-slate-500" />
+                <span>Hide Bill Details</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 2. Main Layout Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* =========================================================================
+            LEFT SECTION: Search Bar, Category Filters & Product Grid
+            (Spans 7 cols when Bill is open, full 12 cols when Bill is hidden)
+            ========================================================================= */}
+        <div className={`${isBillOpen ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-4`}>
         {/* Top Scanner & Search Bar */}
         <div className="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-2xs">
           <form onSubmit={handleScanSubmit} className="flex items-center gap-2">
@@ -329,20 +405,26 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Scan Barcode / Enter IMEI / Search Phone Model (e.g. Y..."
+              placeholder="Scan barcode, enter IMEI, or search item name..."
               className="flex-1 text-xs sm:text-sm text-slate-800 placeholder-slate-400 bg-transparent focus:outline-none"
             />
 
-            {/* Auto-Scan Status Badge */}
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-semibold shrink-0">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Auto-Scan Mode Active</span>
-            </div>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer text-xs"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
 
-            {/* F3 Shortcut Pill */}
-            <div className="px-2 py-1 rounded-md bg-slate-100 text-slate-600 font-mono text-[11px] font-bold shrink-0 border border-slate-200/60">
-              F3
-            </div>
+            <button
+              type="submit"
+              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl cursor-pointer"
+            >
+              Search
+            </button>
           </form>
         </div>
 
@@ -366,66 +448,67 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           })}
         </div>
 
-        {/* Products Grid (3 Columns) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        {/* Products Grid (Expands to 4-5 cols when bill panel is hidden) */}
+        <div
+          className={`grid gap-3 ${
+            isBillOpen
+              ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'
+              : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+          }`}
+        >
           {filteredCatalog.map((product) => {
+            const isOutOfStock = product.stock <= 0;
             return (
               <div
                 key={product.id}
-                className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
+                className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-blue-300 transition-all flex flex-col justify-between group"
               >
                 <div>
-                  {/* Top: Stock Badge */}
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                  {/* Top row: Category icon, Type Pill & Stock Badge */}
+                  <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                        {product.icon === 'audio' && <Headphones className="w-4 h-4 text-violet-600" />}
+                        {product.icon === 'watch' && <Watch className="w-4 h-4 text-emerald-600" />}
+                        {product.icon === 'glass' && <Shield className="w-4 h-4 text-amber-600" />}
+                        {product.icon === 'charger' && <Zap className="w-4 h-4 text-amber-500" />}
+                        {(product.icon === 'phone' || !product.icon) && <Smartphone className="w-4 h-4 text-blue-600" />}
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                          product.type === 'IMEI TRACKED'
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200/70'
+                            : 'bg-slate-100 text-slate-700 border border-slate-200'
+                        }`}
+                      >
+                        {product.type}
+                      </span>
+                    </div>
+
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                        isOutOfStock
+                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                          : product.stock <= 3
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                      }`}
+                    >
                       Stock: {product.stock}
                     </span>
                   </div>
 
-                  {/* Card Visual / Thumbnail */}
-                  <div className="w-full h-28 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden relative mb-3 group-hover:scale-101 transition-transform">
-                    {product.image ? (
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-full h-full object-cover rounded-xl"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                        {product.icon === 'audio' && <Headphones className="w-6 h-6" />}
-                        {product.icon === 'watch' && <Watch className="w-6 h-6 text-emerald-600" />}
-                        {product.icon === 'glass' && <Shield className="w-6 h-6 text-slate-600" />}
-                        {product.icon === 'phone' && <Smartphone className="w-6 h-6 text-blue-600" />}
-                        {!product.icon && <Smartphone className="w-6 h-6 text-blue-600" />}
-                      </div>
-                    )}
-
-                    {/* Badge: IMEI TRACKED or BARCODE */}
-                    <span
-                      className={`absolute bottom-2 right-2 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider backdrop-blur-md ${
-                        product.type === 'IMEI TRACKED'
-                          ? 'bg-blue-600/90 text-white'
-                          : 'bg-slate-900/80 text-white'
-                      }`}
-                    >
-                      {product.type}
-                    </span>
-                  </div>
-
                   {/* Titles & Specs */}
-                  <h3 className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-1 group-hover:text-blue-600 transition-colors">
+                  <h3 className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-2 group-hover:text-blue-600 transition-colors leading-snug">
                     {product.name}
                   </h3>
-                  <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5 font-medium">
+                  <p className="text-[11px] text-slate-500 line-clamp-1 mt-1 font-medium">
                     {product.subtitle}
                   </p>
                 </div>
 
                 {/* Price & Add Button */}
-                <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100">
                   <div>
                     <span className="font-extrabold text-sm sm:text-base text-slate-900 font-sans tracking-tight">
                       ₹{(product.price ?? 0).toLocaleString('en-IN')}
@@ -436,8 +519,10 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                   </div>
 
                   <button
+                    type="button"
+                    disabled={isOutOfStock}
                     onClick={() => handleAddToCart(product)}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold shadow-xs transition-transform active:scale-95 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Add</span>
@@ -450,32 +535,44 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       </div>
 
       {/* =========================================================================
-          RIGHT SECTION (Span 5 on lg): Active Counter Bill & Checkout Panel
+          RIGHT SECTION: Active Counter Bill & Checkout Panel
+          (Rendered ONLY when New Bill button is clicked / isBillOpen is true)
           ========================================================================= */}
-      <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden sticky top-20">
-        {/* Header Strip with Invoice # and Auto-Generated Badge */}
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse"></span>
-            <span className="font-bold text-slate-900 text-xs sm:text-sm tracking-tight font-mono">
-              New Counter Bill
-            </span>
-            <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wider border border-blue-200/60">
-              ACTIVE POS
-            </span>
-          </div>
+      {isBillOpen && (
+        <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden sticky top-20 animate-in fade-in duration-150">
+          {/* Header Strip with Invoice # and Auto-Generated Badge */}
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse"></span>
+              <span className="font-bold text-slate-900 text-xs sm:text-sm tracking-tight font-mono">
+                New Counter Bill
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wider border border-blue-200/60">
+                ACTIVE POS
+              </span>
+            </div>
 
-          <div className="flex items-center gap-1 text-[11px] text-slate-500 font-medium">
-            <Clock className="w-3.5 h-3.5 text-slate-400" />
-            <span>
-              {new Date().toLocaleDateString('en-IN', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-              })}
-            </span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 text-[11px] text-slate-500 font-medium mr-1">
+                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                <span>
+                  {new Date().toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBillOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                title="Hide Bill Details"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        </div>
 
         {/* Customer Selector Mode (Walk-in vs Registered Customer) */}
         <div className="p-4 border-b border-slate-100 space-y-3">
@@ -671,58 +768,35 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             </span>
           </div>
 
-          {/* Discount Row */}
-          <div
-            onClick={() => {
-              if (discount > 0) {
-                setDiscount(0);
-                setDiscountLabel('No Discount');
-              } else {
-                setDiscount(500);
-                setDiscountLabel('Shop Discount (Festival Offer)');
-              }
-            }}
-            className="flex items-center justify-between text-emerald-700 font-semibold cursor-pointer hover:opacity-80 transition-opacity"
-            title="Click to toggle festival discount"
-          >
-            <span className="flex items-center gap-1">
-              <Tag className="w-3.5 h-3.5" />
-              {discountLabel}
+          {/* Clean Discount Input */}
+          <div className="flex items-center justify-between gap-2 py-1">
+            <span className="text-slate-600 flex items-center gap-1">
+              <Tag className="w-3.5 h-3.5 text-blue-600" />
+              Discount (₹)
             </span>
-            <span className="font-mono">
-              -₹{(discount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between text-slate-500">
-            <span>Taxable Value</span>
-            <span className="font-mono">
-              ₹{(taxableValue ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between text-slate-500">
-            <span>CGST @ 9%</span>
-            <span className="font-mono">
-              ₹{(cgst ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between text-slate-500">
-            <span>SGST @ 9%</span>
-            <span className="font-mono">
-              ₹{(sgst ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </span>
+            <input
+              type="number"
+              min="0"
+              max={rawSubtotal}
+              value={discount === 0 ? '' : discount}
+              onChange={(e) => {
+                const val = Math.max(0, Number(e.target.value) || 0);
+                setDiscount(val);
+                setDiscountLabel(val > 0 ? 'Discount' : 'No Discount');
+              }}
+              placeholder="0"
+              className="w-24 px-2 py-1 text-right border border-slate-200 rounded-lg text-xs font-mono font-bold focus:outline-blue-600 bg-white"
+            />
           </div>
 
           {/* NET TOTAL PAYABLE BOX */}
-          <div className="pt-3 border-t border-slate-200/80 flex items-center justify-between">
+          <div className="pt-2.5 border-t border-slate-200/80 flex items-center justify-between">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                NET TOTAL PAYABLE
+                TOTAL PAYABLE
               </p>
-              <p className="text-[11px] font-semibold text-emerald-700">
-                Taxes Fully Computed
+              <p className="text-[10px] text-slate-400">
+                Inclusive of GST
               </p>
             </div>
             <div className="text-right">
@@ -768,7 +842,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             <Printer className="w-4 h-4" />
             <span>Generate & Print Invoice</span>
           </button>
+          </div>
         </div>
+      )}
       </div>
 
       {/* =========================================================================

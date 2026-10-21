@@ -1,10 +1,11 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, Menu, RefreshCw, KeyRound, LogOut } from 'lucide-react';
 import type { HealthResponse } from '../../types';
 import { ChangePasswordModal } from '../modals/ChangePasswordModal';
 
 interface NavbarProps {
-  onToggleMobileSidebar: () => void;
+  isSidebarOpen: boolean;
+  onToggleSidebar: () => void;
   serverHealth: HealthResponse | null;
   serverLoading: boolean;
   onRefreshHealth: () => void;
@@ -14,7 +15,8 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  onToggleMobileSidebar,
+  isSidebarOpen,
+  onToggleSidebar,
   serverHealth,
   serverLoading,
   onRefreshHealth,
@@ -52,12 +54,18 @@ export const Navbar: React.FC<NavbarProps> = ({
     <>
       <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 h-16 flex items-center px-4 sm:px-6 lg:px-8">
         <div className="w-full flex items-center justify-between gap-4">
-          {/* Left: Mobile hamburger & Global Search Bar */}
+          {/* Left: Open/Close Sidebar Toggle Button & Global Search Bar */}
           <div className="flex items-center gap-3 flex-1 max-w-2xl">
             <button
-              onClick={onToggleMobileSidebar}
-              className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg lg:hidden"
-              aria-label="Open menu"
+              type="button"
+              onClick={onToggleSidebar}
+              className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+                isSidebarOpen
+                  ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200/80'
+                  : 'bg-blue-50 text-blue-600 border-blue-200/80 hover:bg-blue-100 shadow-2xs'
+              }`}
+              title={isSidebarOpen ? 'Close Navigation Menu' : 'Open Navigation Menu'}
+              aria-label="Toggle navigation menu"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -87,7 +95,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
                 title={
                   serverHealth
-                    ? 'Backend API Connected on port 5000'
+                    ? 'Backend API Connected'
                     : 'Backend API Offline. Run `npm run dev:all`'
                 }
               >

@@ -24,7 +24,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load env variables from server/.env
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -47,7 +47,37 @@ app.use(
 );
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(morgan('dev'));
+
+// Custom Request Logger for Terminal
+app.use((req, res, next) => {
+  const start = Date.now();
+  const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+  const method = req.method;
+  const url = req.originalUrl;
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const status = res.statusCode;
+    
+    let badge = '🟢';
+    if (status >= 500) badge = '🔴';
+    else if (status >= 400) badge = '🟡';
+    else if (status >= 300) badge = '🔵';
+
+    console.log(`[${time}] ${badge} ${method.padEnd(6)} ${url} -> ${status} (${duration}ms)`);
+    
+    // Log payload for mutation requests (with passwords masked)
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && req.body && Object.keys(req.body).length > 0) {
+      const sanitizedBody = { ...req.body };
+      if (sanitizedBody.password) sanitizedBody.password = '******';
+      if (sanitizedBody.newPassword) sanitizedBody.newPassword = '******';
+      if (sanitizedBody.oldPassword) sanitizedBody.oldPassword = '******';
+      console.log(`         📦 Payload:`, JSON.stringify(sanitizedBody).substring(0, 160));
+    }
+  });
+
+  next();
+});
 
 // API Health Check
 app.get('/api/health', (req, res) => {
@@ -88,7 +118,7 @@ app.use('/api/upload', uploadRouter);
 
 // ─── Serve Frontend (Production) ─────────────────────────────────────
 // In production, serve the Vite-built frontend from ../dist
-const distPath = path.resolve(__dirname, '../../dist');
+const distPath = path.resolve(__dirname, '../dist');
 app.use(express.static(distPath));
 
 // SPA Fallback: any non-API route serves index.html so React handles routing
@@ -106,7 +136,11 @@ app.use((req, res) => {
 
 // Global Error Handler
 app.use((err, req, res, _next) => {
-  console.error('Server error:', err);
+  const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+  console.error(`[${time}] 🔴 Server Error on ${req.method} ${req.originalUrl}:`, err.message || err);
+  if (err.stack) {
+    console.error(err.stack);
+  }
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal Server Error',
