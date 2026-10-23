@@ -205,7 +205,8 @@ export const PurchasesPage: React.FC = () => {
 
       {/* 3. Clean Purchases Table */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -288,6 +289,85 @@ export const PurchasesPage: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Purchase Bill Cards View (sm:hidden) */}
+        <div className="block sm:hidden divide-y divide-slate-100">
+          {paginatedBills.length === 0 ? (
+            <div className="py-10 text-center text-slate-400 text-xs px-4">
+              No purchase bills found.
+            </div>
+          ) : (
+            paginatedBills.map((bill) => {
+              const isDue = (bill.balanceDue || 0) > 0;
+              return (
+                <div key={bill.id} className="p-3.5 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="font-mono font-bold text-xs text-blue-600">
+                          {bill.supplierInvoiceNumber}
+                        </span>
+                        {isDue ? (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                            Due
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Paid
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="font-bold text-slate-900 text-xs leading-snug">
+                        {bill.supplier.name}
+                      </h4>
+                      {bill.supplier.phone && (
+                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                          {bill.supplier.phone}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="font-black text-sm text-slate-900 font-sans block">
+                        ₹{(bill.totalAmount || 0).toLocaleString('en-IN')}
+                      </span>
+                      {isDue && (
+                        <span className="text-[10px] text-rose-600 font-bold block">
+                          Due: ₹{(bill.balanceDue || 0).toLocaleString('en-IN')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-slate-500 line-clamp-1 italic">
+                    {bill.itemsSummary}
+                  </p>
+
+                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-50">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedBillForSlip(bill)}
+                      className="flex items-center gap-1 px-3 py-1 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold"
+                    >
+                      <FileText className="w-3 h-3 text-slate-400" />
+                      <span>Inward Slip</span>
+                    </button>
+                    {isDue && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBillForPayment(bill)}
+                        className="flex items-center gap-1 px-3 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow-2xs"
+                      >
+                        <CreditCard className="w-3 h-3" />
+                        <span>Settle</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Pagination */}

@@ -196,7 +196,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </button>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -254,6 +255,50 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Cards View (sm:hidden) */}
+        <div className="block sm:hidden divide-y divide-slate-100">
+          {recentBills.length === 0 ? (
+            <div className="py-8 text-center text-slate-400 text-xs">
+              No bills generated yet. Tap "+ New Bill" to create one.
+            </div>
+          ) : (
+            recentBills.map((bill) => (
+              <div
+                key={bill.id}
+                onClick={() => onViewBill(bill)}
+                className="p-3.5 flex items-center justify-between gap-3 active:bg-slate-50 transition-colors cursor-pointer"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-xs text-blue-600">
+                      {bill.invoiceNumber}
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700">
+                      {bill.paymentMode || bill.tenderMode || 'Cash'}
+                    </span>
+                  </div>
+                  <p className="font-bold text-slate-900 text-xs mt-1 truncate">
+                    {bill.customer?.name || 'Walk-in Customer'}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    {bill.date ? new Date(bill.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Today'}
+                  </p>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <span className="font-black text-sm text-slate-900 font-sans block">
+                    ₹{(bill.grandTotal || 0).toLocaleString('en-IN')}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 mt-1">
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>View</span>
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

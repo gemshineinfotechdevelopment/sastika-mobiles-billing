@@ -180,7 +180,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
       {/* 3. Clean Customers Table */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -263,6 +264,89 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Customer Cards View (sm:hidden) */}
+        <div className="block sm:hidden divide-y divide-slate-100">
+          {paginatedCustomers.length === 0 ? (
+            <div className="py-10 text-center text-slate-400 text-xs px-4">
+              No customers found matching your criteria.
+            </div>
+          ) : (
+            paginatedCustomers.map((customer) => {
+              const due = customer.khataBalance || 0;
+              return (
+                <div key={customer.id} className="p-3.5 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <h4 className="font-bold text-slate-900 text-xs leading-snug">
+                          {customer.name}
+                        </h4>
+                        {customer.tier && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-blue-50 text-blue-700">
+                            {customer.tier}
+                          </span>
+                        )}
+                      </div>
+                      <a
+                        href={`tel:${customer.phone}`}
+                        className="inline-flex items-center gap-1 font-mono text-[11px] text-blue-600 hover:underline"
+                      >
+                        <Phone className="w-3 h-3 text-slate-400" />
+                        <span>{customer.phone}</span>
+                      </a>
+                      {customer.address && (
+                        <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                          {customer.address}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      {due > 0 ? (
+                        <>
+                          <span className="text-[10px] text-rose-500 font-bold block">Khata Due</span>
+                          <span className="font-black text-sm text-rose-600 font-sans block">
+                            ₹{due.toLocaleString('en-IN')}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">
+                          Settled
+                        </span>
+                      )}
+                      <span className="text-[10px] text-slate-400 block mt-0.5">
+                        Purchases: ₹{(customer.lifetimeSales || 0).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Mobile Actions */}
+                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-50">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCustomerForLedger(customer)}
+                      className="flex items-center gap-1 px-3 py-1 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold"
+                    >
+                      <FileText className="w-3 h-3 text-slate-400" />
+                      <span>Ledger</span>
+                    </button>
+                    {due > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCustomerForPayment(customer)}
+                        className="flex items-center gap-1 px-3 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow-2xs"
+                      >
+                        <IndianRupee className="w-3 h-3" />
+                        <span>Collect Due</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Pagination */}

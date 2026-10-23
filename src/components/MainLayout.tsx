@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sidebar, type NavTab } from './layout/Sidebar';
 import { Navbar } from './layout/Navbar';
 import { Footer } from './layout/Footer';
+import { MobileBottomNav } from './layout/MobileBottomNav';
 import type { HealthResponse } from '../types';
 
 interface MainLayoutProps {
@@ -30,9 +31,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('sastika_sidebar_open');
-      return saved !== null ? saved === 'true' : true;
+      return saved !== null ? saved === 'true' : false; // Default closed on mobile, open controlled by screen
     } catch {
-      return true;
+      return false;
     }
   });
 
@@ -72,16 +73,27 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           onSearchSubmit={onSearchSubmit}
+          activeTab={activeTab}
+          onQuickNewBill={() => setActiveTab('billing')}
         />
 
-        {/* Page Content Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-6 pb-12">
+        {/* Page Content Body - Responsive padding for mobile bottom bar */}
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-5 pb-24 lg:pb-12">
           {children}
         </main>
 
-        {/* Footer Component */}
-        <Footer />
+        {/* Footer Component (hidden or padded on mobile) */}
+        <div className="hidden lg:block">
+          <Footer />
+        </div>
       </div>
+
+      {/* 3. Mobile Fixed Bottom Navigation */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenSidebar={() => setSidebarOpen(true)}
+      />
     </div>
   );
 };

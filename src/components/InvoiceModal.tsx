@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Printer, X, CheckCircle, Smartphone, Receipt, FileText } from 'lucide-react';
+import { Printer, X, Receipt, FileText } from 'lucide-react';
 import type { Bill } from '../types';
 import { api } from '../services/api';
+import sastikaLogo from '../assets/sastika-logo.jpeg';
 
 interface InvoiceModalProps {
   bill: Bill;
@@ -107,8 +108,12 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
         {/* Action Header - Hidden on Print */}
         <div className="px-5 py-3.5 bg-slate-900 text-white no-print space-y-2.5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+            <div className="flex items-center gap-2.5">
+              <img
+                src={sastikaLogo}
+                alt="Sastika Mobiles"
+                className="w-7 h-7 rounded-lg object-contain bg-white/10 p-0.5 border border-slate-700 shrink-0"
+              />
               <span className="font-semibold text-xs sm:text-sm">Invoice #{bill.invoiceNumber}</span>
             </div>
             <div className="flex items-center gap-2">
@@ -184,6 +189,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
             <div className="font-mono text-[10px] leading-tight space-y-2 text-slate-950">
               {/* Header */}
               <div className="text-center pb-1.5 thermal-border-b border-b border-dashed border-slate-900">
+                <img
+                  src={sastikaLogo}
+                  alt="Sastika Mobiles"
+                  className="w-10 h-10 mx-auto rounded-full object-contain mb-1"
+                />
                 <p className="font-black text-xs uppercase tracking-tight">{shopName}</p>
                 <p className="text-[9px] text-slate-700 leading-snug mt-0.5">{shopAddress}</p>
                 <p className="text-[9px] text-slate-700">Ph: {shopPhone}</p>
@@ -286,6 +296,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
             <div className="font-mono text-xs leading-normal space-y-2.5 text-slate-950">
               {/* Header */}
               <div className="text-center pb-2 thermal-border-b border-b border-dashed border-slate-900">
+                <img
+                  src={sastikaLogo}
+                  alt="Sastika Mobiles"
+                  className="w-12 h-12 mx-auto rounded-full object-contain mb-1"
+                />
                 <p className="font-black text-sm uppercase tracking-tight text-slate-950">{shopName}</p>
                 <p className="text-[10px] text-slate-700 leading-tight mt-0.5">{shopAddress}</p>
                 <p className="text-[10px] text-slate-700">Official Mobile: {shopPhone}</p>
@@ -415,16 +430,19 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
             <div className="space-y-4 text-xs sm:text-sm">
               {/* Shop Header & Title */}
               <div className="border border-slate-900 rounded-t-lg p-4 flex justify-between items-start bg-slate-50/50">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-7 h-7 rounded-lg bg-slate-900 flex items-center justify-center text-white font-bold no-print">
-                      <Smartphone className="w-4 h-4" />
-                    </div>
-                    <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight">{shopName}</h1>
+                <div className="flex items-start gap-3">
+                  <img
+                    src={sastikaLogo}
+                    alt="Sastika Mobiles"
+                    className="w-14 h-14 rounded-xl object-contain border border-slate-300 shadow-2xs shrink-0 bg-white"
+                  />
+                  <div>
+                    <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-tight">{shopName}</h1>
+                    <p className="text-[10px] text-amber-700 font-bold uppercase tracking-wider mb-0.5">Premium Mobiles & Accessories</p>
+                    <p className="text-slate-600 text-xs">{shopAddress}</p>
+                    <p className="text-slate-600 text-xs">Phone: <strong className="text-slate-900">{shopPhone}</strong></p>
+                    <p className="text-slate-900 font-mono text-xs font-bold mt-0.5">GSTIN: {shopGstin}</p>
                   </div>
-                  <p className="text-slate-600 text-xs">{shopAddress}</p>
-                  <p className="text-slate-600 text-xs">Phone: <strong className="text-slate-900">{shopPhone}</strong></p>
-                  <p className="text-slate-900 font-mono text-xs font-bold mt-0.5">GSTIN: {shopGstin}</p>
                 </div>
 
                 <div className="text-right">

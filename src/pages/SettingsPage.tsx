@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
   Printer,
   Save,
-  Building2,
   Receipt,
   CheckCircle2,
   FileText,
 } from 'lucide-react';
 import { api } from '../services/api';
+import sastikaLogo from '../assets/sastika-logo.jpeg';
 
 export const normalizePrinterType = (val: string | null | undefined): '3-inch Thermal (80mm)' | '2-inch Thermal (58mm)' | 'A4 Standard Laser' => {
   if (!val) return '3-inch Thermal (80mm)';
@@ -110,11 +110,13 @@ export const SettingsPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Form: Store Profile & Hardware */}
         <div className="lg:col-span-7 bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-xs space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                <Building2 className="w-4 h-4" />
-              </div>
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <img
+                src={sastikaLogo}
+                alt="Sastika Mobiles"
+                className="w-12 h-12 rounded-xl object-contain border border-slate-200/90 shadow-2xs shrink-0"
+              />
               <div>
                 <h2 className="text-sm font-bold text-slate-900">Store Profile &amp; GST Details</h2>
                 <p className="text-[11px] text-slate-500">
@@ -122,6 +124,9 @@ export const SettingsPage: React.FC = () => {
                 </p>
               </div>
             </div>
+            <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/70">
+              Official Logo
+            </span>
           </div>
 
           <form onSubmit={handleSave} className="space-y-4 text-xs">

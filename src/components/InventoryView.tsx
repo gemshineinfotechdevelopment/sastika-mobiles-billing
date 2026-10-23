@@ -258,7 +258,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
       {/* 3. Clean Products Table */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -365,6 +366,107 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Product Cards View (sm:hidden) */}
+        <div className="block sm:hidden divide-y divide-slate-100">
+          {paginatedProducts.length === 0 ? (
+            <div className="py-10 text-center text-slate-400 text-xs px-4">
+              No matching products found. Tap "+ Add Product" to create one.
+            </div>
+          ) : (
+            paginatedProducts.map((product) => {
+              const isOutOfStock = (product.stock || 0) <= 0;
+              const isLowStock = (product.stock || 0) <= (product.minThreshold || 4);
+              return (
+                <div key={product.id} className="p-3.5 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-slate-100 text-slate-700">
+                          {product.category || 'Accessories'}
+                        </span>
+                        <span
+                          className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                            isOutOfStock
+                              ? 'bg-rose-50 text-rose-700'
+                              : isLowStock
+                              ? 'bg-amber-50 text-amber-700'
+                              : 'bg-emerald-50 text-emerald-700'
+                          }`}
+                        >
+                          {isOutOfStock ? '0 in stock' : `${product.stock || 0} units`}
+                        </span>
+                      </div>
+                      <h3 className="font-bold text-slate-900 text-xs leading-snug">
+                        {product.name}
+                      </h3>
+                      <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                        {product.brand} {product.model} {product.variant ? `• ${product.variant}` : ''}
+                      </p>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="font-black text-sm text-slate-900 font-sans block">
+                        ₹{(product.price || 0).toLocaleString('en-IN')}
+                      </span>
+                      {product.costPrice && (
+                        <span className="text-[10px] text-slate-400 font-mono block">
+                          Cost: ₹{product.costPrice.toLocaleString('en-IN')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Mobile Quick Action Buttons Bar */}
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInspectProduct(product);
+                        setShowQuickStockModal(true);
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 font-bold rounded-lg text-[11px] cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Stock In</span>
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditingProduct(product)}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer"
+                        title="Edit"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPrintingProduct(product)}
+                        className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg cursor-pointer"
+                        title="Print Barcode"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Delete ${product.name}?`)) {
+                            handleProductDeleted(product.id);
+                          }
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg cursor-pointer"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Pagination */}

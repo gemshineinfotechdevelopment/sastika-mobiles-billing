@@ -12,6 +12,8 @@ import {
   X,
 } from 'lucide-react';
 
+import sastikaLogo from '../../assets/sastika-logo.jpeg';
+
 export type NavTab =
   | 'dashboard'
   | 'billing'
@@ -81,18 +83,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Top Header & Brand */}
         <div className="p-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* Logo Icon */}
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-xs">
-              <div className="grid grid-cols-2 gap-0.5">
-                <span className="w-2 h-2 bg-white rounded-xs"></span>
-                <span className="w-2 h-2 bg-white rounded-xs"></span>
-                <span className="w-2 h-2 bg-white rounded-xs"></span>
-                <span className="w-2 h-2 bg-white/70 rounded-xs"></span>
-              </div>
-            </div>
+            {/* Logo Image */}
+            <img
+              src={sastikaLogo}
+              alt="Sastika Mobiles"
+              className="w-10 h-10 rounded-xl object-contain border border-slate-200/90 shadow-2xs shrink-0"
+            />
             <div>
-              <span className="font-extrabold text-sm tracking-wider text-slate-900 uppercase">
+              <span className="font-extrabold text-sm tracking-wider text-slate-900 uppercase block leading-tight">
                 {shopName}
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium block">
+                Billing & Inventory
               </span>
             </div>
           </div>

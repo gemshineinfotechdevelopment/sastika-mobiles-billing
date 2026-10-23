@@ -234,7 +234,8 @@ export const SalesPage: React.FC<SalesPageProps> = ({
 
       {/* 3. Clean Bills Table */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -336,6 +337,97 @@ export const SalesPage: React.FC<SalesPageProps> = ({
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Sales Cards View (sm:hidden) */}
+        <div className="block sm:hidden divide-y divide-slate-100">
+          {paginatedBills.length === 0 ? (
+            <div className="py-10 text-center text-slate-400 text-xs px-4">
+              No matching invoices found.
+            </div>
+          ) : (
+            paginatedBills.map((bill) => {
+              const isVoided = bill.isCancelled || bill.status === 'CANCELLED';
+              const isDue = (bill.balanceDue || 0) > 0;
+              return (
+                <div key={bill.id} className="p-3.5 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="font-mono font-bold text-xs text-blue-600">
+                          {bill.invoiceNumber}
+                        </span>
+                        {isVoided ? (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                            Cancelled
+                          </span>
+                        ) : isDue ? (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                            Due
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Paid
+                          </span>
+                        )}
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700">
+                          {bill.paymentMode || bill.tenderMode || 'Cash'}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-slate-900 text-xs leading-snug">
+                        {bill.customer?.name || 'Walk-in Customer'}
+                      </h4>
+                      {bill.customer?.phone && bill.customer.phone !== 'Counter Sale' && (
+                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                          {bill.customer.phone}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="font-black text-sm text-slate-900 font-sans block">
+                        ₹{(bill.grandTotal || 0).toLocaleString('en-IN')}
+                      </span>
+                      {isDue && (
+                        <span className="text-[10px] text-rose-600 font-medium block">
+                          Due: ₹{(bill.balanceDue || 0).toLocaleString('en-IN')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-slate-500 line-clamp-1 italic">
+                    {bill.itemSummary || (bill.items || []).map((i) => i.name).join(', ')}
+                  </p>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-50 text-[10px] text-slate-400">
+                    <span>
+                      {bill.date ? new Date(bill.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Today'}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {!isVoided && (
+                        <button
+                          type="button"
+                          onClick={() => setVoidingBill(bill)}
+                          className="text-rose-600 font-medium hover:underline cursor-pointer"
+                        >
+                          Cancel Bill
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onSelectBill(bill)}
+                        className="flex items-center gap-1 text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded cursor-pointer"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>View</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Simple Pagination */}
