@@ -175,7 +175,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <Users className="w-5 h-5" />
           </div>
           <h3 className="font-bold text-slate-900 text-sm">Customers</h3>
-          <p className="text-[11px] text-slate-500 mt-0.5">Khata credit & ledger</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Customer dues & ledger</p>
         </button>
       </div>
 

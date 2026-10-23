@@ -204,7 +204,10 @@ router.patch('/:id/stock', async (req, res) => {
     const { id } = req.params;
     const { delta, newStock } = req.body;
 
-    const product = await Product.findOne({ id });
+    let product = await Product.findOne({ id });
+    if (!product && id.match(/^[0-9a-fA-F]{24}$/)) {
+      product = await Product.findById(id);
+    }
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
@@ -226,7 +229,10 @@ router.patch('/:id/stock', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await Product.findOneAndDelete({ id });
+    let deleted = await Product.findOneAndDelete({ id });
+    if (!deleted && id.match(/^[0-9a-fA-F]{24}$/)) {
+      deleted = await Product.findByIdAndDelete(id);
+    }
 
     if (!deleted) {
       return res.status(404).json({ success: false, message: 'Product not found' });

@@ -110,11 +110,10 @@ const productSchema = new mongoose.Schema(
 );
 
 // Calculate margin before save if price and costPrice exist
-productSchema.pre('save', function (next) {
+productSchema.pre('save', function () {
   if (this.price && this.costPrice && this.price > 0) {
     this.margin = Number((((this.price - this.costPrice) / this.price) * 100).toFixed(1));
   }
-  next();
 });
 
 export const Product = mongoose.models.Product || mongoose.model('Product', productSchema);

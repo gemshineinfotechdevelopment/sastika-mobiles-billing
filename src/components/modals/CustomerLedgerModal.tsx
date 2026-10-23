@@ -1,14 +1,10 @@
+import React from 'react';
 import {
   X,
-  Phone,
-  Mail,
-  MapPin,
-  Building2,
   IndianRupee,
-  MessageSquare,
   Printer,
 } from 'lucide-react';
-import type { Customer } from '../../types';
+import type { Customer, CustomerLedgerItem } from '../../types';
 
 interface CustomerLedgerModalProps {
   isOpen: boolean;
@@ -28,42 +24,40 @@ export const CustomerLedgerModal: React.FC<CustomerLedgerModalProps> = ({
   const due = customer.khataBalance || 0;
   const isSettled = due === 0;
 
-  // Mock ledger entries for this customer
-  const ledgerEntries = [
-    {
-      date: '24 Oct 2026',
-      type: 'INVOICE',
-      ref: '#INV-2026-0892',
-      details: 'Vivo V29 5G (8/128GB) + Tempered Glass',
-      debit: 32198,
-      credit: 32198,
-      balance: 0,
-    },
-    {
-      date: '18 Oct 2026',
-      type: 'PAYMENT',
-      ref: 'UPI-REC-49102',
-      details: 'GPay Settlement received by Store Admin',
-      debit: 0,
-      credit: 12500,
-      balance: 0,
-    },
-    {
-      date: '12 Oct 2026',
-      type: 'INVOICE',
-      ref: '#INV-2026-0741',
-      details: 'boAt Rockerz 255 Pro + 20W Charger',
-      debit: 3199,
-      credit: 3199,
-      balance: 0,
-    },
-  ];
+  const shopName = import.meta.env.VITE_SHOP_NAME || 'Sastika Mobiles';
+  const shopPhone = import.meta.env.VITE_SHOP_PHONE || '+91 98765 43210';
+  const shopAddress = import.meta.env.VITE_SHOP_ADDRESS || 'Main Road, Bazaar Street, Tamil Nadu';
+  const shopGstin = import.meta.env.VITE_SHOP_GSTIN || '33AAAAA0000A1Z5';
+
+  // Live ledger entries or fallback
+  const entries =
+    customer.ledger && customer.ledger.length > 0
+      ? customer.ledger.map((item: CustomerLedgerItem) => ({
+          date: item.date,
+          type: item.type,
+          ref: item.billNumber || 'REF',
+          details: item.notes || (item.type === 'INVOICE' ? 'Sales Bill' : 'Payment Received'),
+          debit: item.type === 'INVOICE' ? item.amount : 0,
+          credit: item.type === 'PAYMENT' ? item.amount : 0,
+          balance: item.balanceAfter ?? 0,
+        }))
+      : [
+          {
+            date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+            type: due > 0 ? 'INVOICE' : 'PAYMENT',
+            ref: 'INITIAL-BAL',
+            details: due > 0 ? 'Balance Due on Account' : 'Account Settled / Zero Balance',
+            debit: due > 0 ? due : 0,
+            credit: due === 0 ? 0 : 0,
+            balance: due,
+          },
+        ];
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
+        {/* Header - Screen only */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0 no-print">
           <div className="flex items-center gap-3">
             <div
               className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs ${
@@ -84,171 +78,116 @@ export const CustomerLedgerModal: React.FC<CustomerLedgerModalProps> = ({
                       : 'bg-slate-100 text-slate-600'
                   }`}
                 >
-                  {customer.tier || 'REGULAR'}
+                  {customer.tier === 'KHATA RISK' ? 'HIGH RISK' : (customer.tier || 'REGULAR')}
                 </span>
               </div>
               <p className="text-slate-500 text-xs">
-                {customer.id} • {customer.address || 'Chennai'}
+                {customer.id} • {customer.address || 'Tamil Nadu'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
-          {/* Quick Metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                Lifetime Sales
-              </span>
-              <span className="text-base font-extrabold text-slate-900 font-mono">
-                ₹{(customer.lifetimeSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </span>
-              <span className="text-[11px] text-slate-400 block mt-0.5">
-                {customer.billsCount || 1} Total Invoices
-              </span>
+        {/* Printable Statement Container */}
+        <div id="printable-ledger" className="p-6 overflow-y-auto space-y-4 flex-1 text-xs bg-white">
+          {/* Printable Official Shop Header (Visible on print & screen) */}
+          <div className="border border-slate-900 rounded-t-lg p-3.5 bg-slate-50/60 flex justify-between items-start">
+            <div>
+              <h2 className="text-base font-black text-slate-900 uppercase tracking-tight">{shopName}</h2>
+              <p className="text-slate-600 text-xs">{shopAddress}</p>
+              <p className="text-slate-600 text-xs">Phone: <strong className="text-slate-900">{shopPhone}</strong></p>
+              <p className="text-slate-900 font-mono text-xs font-bold mt-0.5">GSTIN: {shopGstin}</p>
             </div>
-
-            <div
-              className={`rounded-xl p-3 border ${
-                isSettled
-                  ? 'bg-emerald-50/60 border-emerald-200 text-emerald-900'
-                  : 'bg-red-50/70 border-red-200 text-red-900'
-              }`}
-            >
-              <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block mb-1">
-                Khata Balance Due
+            <div className="text-right">
+              <span className="inline-block px-2.5 py-1 bg-slate-900 text-white rounded font-bold text-xs uppercase tracking-wider mb-1">
+                ACCOUNT STATEMENT
               </span>
-              <span className="text-base font-extrabold font-mono block">
-                ₹{due.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </span>
-              <span className="text-[11px] font-semibold block mt-0.5">
-                {isSettled ? '✓ Zero Due / Settled' : customer.dueText || 'Outstanding'}
-              </span>
-            </div>
-
-            <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                Loyalty Reward Points
-              </span>
-              <span className="text-base font-extrabold text-blue-600 block">
-                {customer.loyaltyPoints || 0} pts
-              </span>
-              <span className="text-[11px] text-slate-400 block mt-0.5">₹{(customer.loyaltyPoints || 0) * 0.5} redeemable</span>
-            </div>
-
-            <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                Last Activity
-              </span>
-              <span className="text-xs font-bold text-slate-800 block">
-                {customer.lastBillDate || 'Recent'}
-              </span>
-              <span className="text-[11px] text-slate-400 block mt-0.5">Active Patron</span>
+              <p className="text-slate-600 text-xs">Date: <strong className="text-slate-900">{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></p>
+              <p className="text-slate-600 text-xs">Time: <strong className="text-slate-900">{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</strong></p>
             </div>
           </div>
 
-          {/* Contact Details & Quick Communications */}
-          <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-4 space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Contact & GST Profile
+          {/* Customer Profile & Financial Summary Table */}
+          <table className="w-full text-xs border border-slate-900 border-collapse print-table">
+            <thead>
+              <tr className="bg-slate-100 text-slate-900 border-b border-slate-900 font-bold">
+                <th colSpan={2} className="py-2 px-3 border-r border-slate-900">Customer Information</th>
+                <th colSpan={2} className="py-2 px-3">Account Standing Summary</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-slate-900">
+                <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900 w-28">Customer Name:</td>
+                <td className="py-1.5 px-3 font-bold text-slate-900 border-r border-slate-900">{customer.name}</td>
+                <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900 w-32">Total Purchases:</td>
+                <td className="py-1.5 px-3 font-bold text-right font-mono text-slate-900">
+                  ₹{(customer.lifetimeSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+              <tr className="border-b border-slate-900">
+                <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">Mobile Phone:</td>
+                <td className="py-1.5 px-3 font-mono text-slate-900 border-r border-slate-900">{customer.phone}</td>
+                <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">Total Bills Count:</td>
+                <td className="py-1.5 px-3 font-bold text-right font-mono text-slate-900">{customer.billsCount || 1} Bills</td>
+              </tr>
+              <tr className="border-b border-slate-900">
+                <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">Address / City:</td>
+                <td className="py-1.5 px-3 text-slate-900 border-r border-slate-900">{customer.address || 'Tamil Nadu'}</td>
+                <td className="py-1.5 px-3 font-bold text-slate-900 border-r border-slate-900 bg-slate-50">Current Balance Due:</td>
+                <td className={`py-1.5 px-3 font-black text-right font-mono ${due > 0 ? 'text-rose-700' : 'text-emerald-700'} bg-slate-50`}>
+                  ₹{due.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+              <tr>
+                <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">Customer GSTIN:</td>
+                <td className="py-1.5 px-3 font-mono text-slate-900 border-r border-slate-900">{customer.gstin || 'Consumer (B2C)'}</td>
+                <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">Account Status:</td>
+                <td className="py-1.5 px-3 font-bold text-right text-slate-900 uppercase">
+                  {isSettled ? '✓ Zero Due / Settled' : customer.dueText || 'Payment Pending'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Statement / Ledger Transactions Table */}
+          <div className="space-y-1.5">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+              Detailed Ledger Statement Transactions:
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="flex items-center gap-2 text-slate-700">
-                <Phone className="w-3.5 h-3.5 text-slate-400" />
-                <span className="font-mono font-medium">{customer.phone}</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-700">
-                <Mail className="w-3.5 h-3.5 text-slate-400" />
-                <span>{customer.email || 'No email registered'}</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-700">
-                <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                <span>{customer.address || 'Chennai, Tamil Nadu'}</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-700">
-                <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                <span className="font-mono uppercase">
-                  {customer.gstin ? `GST: ${customer.gstin}` : 'Consumer (B2C)'}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 pt-2 border-t border-slate-200/60">
-              <a
-                href={`https://wa.me/${customer.phone.replace(/[^0-9]/g, '')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold"
-              >
-                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                <span>WhatsApp Patron</span>
-              </a>
-              <a
-                href={`tel:${customer.phone}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-lg text-xs font-semibold"
-              >
-                <Phone className="w-3.5 h-3.5 text-sky-600" />
-                <span>Call Phone</span>
-              </a>
-              {due > 0 && onCollectPayment && (
-                <button
-                  onClick={() => {
-                    onClose();
-                    onCollectPayment(customer);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-700 hover:bg-red-800 text-white rounded-lg text-xs font-semibold ml-auto cursor-pointer"
-                >
-                  <IndianRupee className="w-3.5 h-3.5" />
-                  <span>Collect Payment (₹{due.toLocaleString('en-IN')})</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Statement / Ledger History */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Recent Khata Ledger Transactions
-              </h4>
-              <span className="text-[11px] text-slate-400">Showing last 3 transactions</span>
-            </div>
-
-            <div className="overflow-x-auto border border-slate-200 rounded-xl">
-              <table className="w-full text-left text-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border border-slate-900 border-collapse print-table">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    <th className="py-2.5 px-3">Date & Ref</th>
-                    <th className="py-2.5 px-3">Transaction Details</th>
-                    <th className="py-2.5 px-3 text-right">Debit (Bill)</th>
-                    <th className="py-2.5 px-3 text-right">Credit (Paid)</th>
-                    <th className="py-2.5 px-3 text-right">Balance</th>
+                  <tr className="bg-slate-100 border-b border-slate-900 text-slate-900 text-[10px] font-bold uppercase tracking-wider">
+                    <th className="py-2 px-2.5 text-center border-r border-slate-900 w-10">#</th>
+                    <th className="py-2 px-2.5 border-r border-slate-900 w-24">Date</th>
+                    <th className="py-2 px-2.5 border-r border-slate-900 w-28">Ref / Bill No</th>
+                    <th className="py-2 px-2.5 border-r border-slate-900">Description / Notes</th>
+                    <th className="py-2 px-2.5 text-right border-r border-slate-900 w-24">Debit (Bill ₹)</th>
+                    <th className="py-2 px-2.5 text-right border-r border-slate-900 w-24">Credit (Paid ₹)</th>
+                    <th className="py-2 px-2.5 text-right w-28">Balance Due (₹)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {ledgerEntries.map((entry, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50">
-                      <td className="py-2.5 px-3">
-                        <p className="font-semibold text-slate-800">{entry.date}</p>
-                        <p className="font-mono text-[10px] text-slate-400">{entry.ref}</p>
+                <tbody>
+                  {entries.map((entry, idx) => (
+                    <tr key={idx} className="border-b border-slate-900 hover:bg-slate-50/50">
+                      <td className="py-2 px-2.5 text-center border-r border-slate-900 font-mono text-slate-500">{idx + 1}</td>
+                      <td className="py-2 px-2.5 border-r border-slate-900 font-semibold text-slate-900">{entry.date}</td>
+                      <td className="py-2 px-2.5 border-r border-slate-900 font-mono font-bold text-slate-900">{entry.ref}</td>
+                      <td className="py-2 px-2.5 border-r border-slate-900 text-slate-700">{entry.details}</td>
+                      <td className="py-2 px-2.5 text-right border-r border-slate-900 font-mono text-slate-900">
+                        {entry.debit > 0 ? `₹${entry.debit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}
                       </td>
-                      <td className="py-2.5 px-3 text-slate-600 max-w-xs">{entry.details}</td>
-                      <td className="py-2.5 px-3 text-right font-mono text-slate-800">
-                        {entry.debit > 0 ? `₹${entry.debit.toLocaleString('en-IN')}` : '—'}
+                      <td className="py-2 px-2.5 text-right border-r border-slate-900 font-mono font-bold text-emerald-700">
+                        {entry.credit > 0 ? `₹${entry.credit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-emerald-600 font-semibold">
-                        {entry.credit > 0 ? `₹${entry.credit.toLocaleString('en-IN')}` : '—'}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800">
-                        ₹{entry.balance.toLocaleString('en-IN')}
+                      <td className="py-2 px-2.5 text-right font-mono font-bold text-slate-950">
+                        ₹{entry.balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                     </tr>
                   ))}
@@ -256,23 +195,56 @@ export const CustomerLedgerModal: React.FC<CustomerLedgerModalProps> = ({
               </table>
             </div>
           </div>
+
+          {/* Statement Signatory Footer */}
+          <div className="border border-slate-900 rounded-b-lg p-4 mt-2 flex justify-between items-end text-xs bg-slate-50/30">
+            <div>
+              <p className="font-bold text-slate-900 text-[10px] uppercase tracking-wider mb-1">Customer Verification:</p>
+              <p className="text-slate-500 text-[11px]">This statement is an accurate reflection of store ledger entries.</p>
+              <div className="mt-8 border-t border-slate-900 pt-1 w-36 text-center">
+                <p className="font-semibold text-slate-700 text-[11px]">Customer Signature</p>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <p className="text-slate-600 text-xs">For <strong className="text-slate-900">{shopName}</strong></p>
+              <div className="mt-8 border-t border-slate-900 pt-1 w-40 text-center ml-auto">
+                <p className="font-bold text-slate-900 text-xs">Authorized Signatory</p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between shrink-0">
+        {/* Footer Actions - Screen only */}
+        <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between shrink-0 no-print">
           <button
             onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
           >
-            <Printer className="w-3.5 h-3.5" />
+            <Printer className="w-4 h-4" />
             <span>Print Account Statement</span>
           </button>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-xl cursor-pointer"
-          >
-            Close Profile
-          </button>
+          
+          <div className="flex items-center gap-2">
+            {due > 0 && onCollectPayment && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onCollectPayment(customer);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold cursor-pointer"
+              >
+                <IndianRupee className="w-3.5 h-3.5" />
+                <span>Collect Payment</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-xl cursor-pointer"
+            >
+              Close Profile
+            </button>
+          </div>
         </div>
       </div>
     </div>

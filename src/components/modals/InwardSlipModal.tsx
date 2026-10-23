@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Printer, CheckCircle2, Smartphone, Package } from 'lucide-react';
+import { X, Printer, Package } from 'lucide-react';
 import type { PurchaseBill } from '../../types';
 
 interface InwardSlipModalProps {
@@ -15,11 +15,16 @@ export const InwardSlipModal: React.FC<InwardSlipModalProps> = ({
 }) => {
   if (!isOpen || !bill) return null;
 
+  const shopName = import.meta.env.VITE_SHOP_NAME || 'Sastika Mobiles';
+  const shopPhone = import.meta.env.VITE_SHOP_PHONE || '+91 98765 43210';
+  const shopAddress = import.meta.env.VITE_SHOP_ADDRESS || 'Main Road, Bazaar Street, Tamil Nadu';
+  const shopGstin = import.meta.env.VITE_SHOP_GSTIN || '33AAAAA0000A1Z5';
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0">
+        {/* Header - Screen only */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 shrink-0 no-print">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
               <Package className="w-5 h-5" />
@@ -44,123 +49,114 @@ export const InwardSlipModal: React.FC<InwardSlipModalProps> = ({
           </button>
         </div>
 
-        {/* Slip Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
-          {/* Status banner */}
-          <div className="bg-emerald-50/90 border border-emerald-200 rounded-xl p-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <div>
-                <p className="font-bold text-emerald-900">Stock Inward Verified &amp; Synced</p>
-                <p className="text-[11px] text-emerald-700">
-                  {bill.unitsCount} total units added to shop live inventory
-                </p>
-              </div>
-            </div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100/70 border border-emerald-300 px-2 py-0.5 rounded">
-              GST GSTR-2B MATCHED
-            </span>
-          </div>
-
-          {/* Supplier & Consignment Details */}
-          <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+        {/* Printable Slip Container */}
+        <div id="printable-slip" className="p-6 overflow-y-auto space-y-4 flex-1 text-xs bg-white">
+          {/* Shop Header & Title */}
+          <div className="border border-slate-900 rounded-t-lg p-3.5 bg-slate-50/60 flex justify-between items-start">
             <div>
-              <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Supplier Details</p>
-              <h4 className="font-bold text-sm text-slate-900">{bill.supplier.name}</h4>
-              <p className="text-slate-600 mt-0.5">{bill.supplier.address}</p>
-              <p className="font-mono text-slate-500 mt-0.5">{bill.supplier.phone}</p>
-              <p className="font-mono font-semibold text-slate-800 mt-1">
-                GSTIN: {bill.supplier.gstin}
-              </p>
+              <h2 className="text-base font-black text-slate-900 uppercase tracking-tight">{shopName}</h2>
+              <p className="text-slate-600 text-xs">{shopAddress}</p>
+              <p className="text-slate-600 text-xs">Phone: <strong className="text-slate-900">{shopPhone}</strong></p>
+              <p className="text-slate-900 font-mono text-xs font-bold mt-0.5">GSTIN: {shopGstin}</p>
             </div>
-
-            <div>
-              <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Inward Metadata</p>
-              <div className="space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Inward Slip #:</span>
-                  <span className="font-mono font-bold text-slate-900">{bill.id}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Supplier Inv Ref:</span>
-                  <span className="font-mono font-bold text-blue-600">
-                    {bill.supplierInvoiceNumber}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Inward Date:</span>
-                  <span className="font-semibold text-slate-800">{bill.date}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Consignment Status:</span>
-                  <span className="font-bold text-emerald-600">{bill.stockSyncStatus}</span>
-                </div>
-              </div>
+            <div className="text-right">
+              <span className="inline-block px-2.5 py-1 bg-slate-900 text-white rounded font-bold text-xs uppercase tracking-wider mb-1">
+                GOODS RECEIPT NOTE (GRN)
+              </span>
+              <p className="font-mono font-bold text-sm text-slate-900">SLIP #{bill.id}</p>
+              <p className="text-slate-600 text-xs">Date: <strong className="text-slate-900">{bill.date}</strong></p>
+              <p className="text-slate-600 text-xs">Supplier Inv: <strong className="text-blue-700 font-mono">{bill.supplierInvoiceNumber}</strong></p>
             </div>
           </div>
 
-          {/* Items Table */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-              Inward Items Specification
+          {/* Consignment & Supplier Details Table */}
+          <table className="w-full text-xs border border-slate-900 border-collapse print-table">
+            <thead>
+              <tr className="bg-slate-100 text-slate-900 border-b border-slate-900 font-bold">
+                <th colSpan={2} className="py-2 px-3 border-r border-slate-900">Supplier Vendor Details</th>
+                <th colSpan={2} className="py-2 px-3">Consignment Inward Metadata</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-slate-900">
+                <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900 w-28">Vendor Name:</td>
+                <td className="py-1.5 px-3 font-bold text-slate-900 border-r border-slate-900">{bill.supplier.name}</td>
+                <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900 w-32">Supplier Invoice #:</td>
+                <td className="py-1.5 px-3 font-mono font-bold text-slate-900">{bill.supplierInvoiceNumber}</td>
+              </tr>
+              <tr className="border-b border-slate-900">
+                <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">Contact / Phone:</td>
+                <td className="py-1.5 px-3 font-mono text-slate-900 border-r border-slate-900">{bill.supplier.phone || '—'}</td>
+                <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">Inward Slip Ref:</td>
+                <td className="py-1.5 px-3 font-mono text-slate-900">{bill.id}</td>
+              </tr>
+              <tr className="border-b border-slate-900">
+                <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">Vendor GSTIN:</td>
+                <td className="py-1.5 px-3 font-mono text-slate-900 border-r border-slate-900">{bill.supplier.gstin || 'Unregistered'}</td>
+                <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">Stock Sync Status:</td>
+                <td className="py-1.5 px-3 font-bold text-emerald-700">{bill.stockSyncStatus || 'Verified'}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">Vendor Address:</td>
+                <td className="py-1.5 px-3 text-slate-900 border-r border-slate-900">{bill.supplier.address || '—'}</td>
+                <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">Payment Status:</td>
+                <td className="py-1.5 px-3 font-bold uppercase text-slate-900">{bill.paymentStatus}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Inward Items Table */}
+          <div className="space-y-1.5">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+              Inward Items Received &amp; Stocked:
             </h4>
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <table className="w-full text-left text-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border border-slate-900 border-collapse print-table">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase">
-                    <th className="py-2.5 px-3">Description</th>
-                    <th className="py-2.5 px-2 text-center">Qty Inward</th>
-                    <th className="py-2.5 px-3 text-right">Taxable (₹)</th>
-                    <th className="py-2.5 px-3 text-right">Total Inward (₹)</th>
+                  <tr className="bg-slate-100 border-b border-slate-900 text-slate-900 text-[10px] font-bold uppercase">
+                    <th className="py-2 px-2.5 text-center border-r border-slate-900 w-10">#</th>
+                    <th className="py-2 px-2.5 border-r border-slate-900">Description / Product Name</th>
+                    <th className="py-2 px-2.5 border-r border-slate-900 w-24 text-center">Category</th>
+                    <th className="py-2 px-2.5 border-r border-slate-900 w-16 text-center">Qty Inward</th>
+                    <th className="py-2 px-2.5 border-r border-slate-900 w-24 text-right">Taxable (₹)</th>
+                    <th className="py-2 px-2.5 text-right w-28">Total Amount (₹)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {bill.items && bill.items.length > 0 ? (
                     bill.items.map((it, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/50">
-                        <td className="py-2.5 px-3">
-                          <p className="font-bold text-slate-900">{it.name}</p>
+                      <tr key={idx} className="border-b border-slate-900 hover:bg-slate-50/50">
+                        <td className="py-2 px-2.5 text-center border-r border-slate-900 font-mono text-slate-500">{idx + 1}</td>
+                        <td className="py-2 px-2.5 border-r border-slate-900 font-bold text-slate-900">
+                          {it.name}
                           {it.imeiNumbers && it.imeiNumbers.length > 0 && (
-                            <div className="mt-1 space-y-0.5">
-                              <span className="text-[10px] font-semibold text-blue-600 flex items-center gap-1">
-                                <Smartphone className="w-3 h-3" /> Logged IMEIs:
+                            <div className="mt-1 font-normal">
+                              <span className="text-[10px] text-slate-500 block">
+                                Inwarded IMEIs: {it.imeiNumbers.join(', ')}
                               </span>
-                              <div className="flex flex-wrap gap-1">
-                                {it.imeiNumbers.map((imei, i) => (
-                                  <span
-                                    key={i}
-                                    className="font-mono text-[9px] bg-slate-100 text-slate-700 px-1 py-0.2 rounded border border-slate-200"
-                                  >
-                                    {imei}
-                                  </span>
-                                ))}
-                              </div>
                             </div>
                           )}
                         </td>
-                        <td className="py-2.5 px-2 text-center font-bold text-slate-800">
-                          {it.quantity}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-slate-700">
+                        <td className="py-2 px-2.5 border-r border-slate-900 text-center text-slate-600">{it.category || 'Accessories'}</td>
+                        <td className="py-2 px-2.5 border-r border-slate-900 text-center font-bold text-slate-900">{it.quantity}</td>
+                        <td className="py-2 px-2.5 border-r border-slate-900 text-right font-mono text-slate-800">
                           ₹{it.taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
+                        <td className="py-2 px-2.5 text-right font-mono font-bold text-slate-900">
                           ₹{it.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
                       </tr>
                     ))
                   ) : (
-                    <tr>
-                      <td className="py-2.5 px-3 font-semibold text-slate-800">
-                        {bill.itemsSummary}
-                      </td>
-                      <td className="py-2.5 px-2 text-center font-bold text-slate-800">
-                        {bill.unitsCount}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-slate-700">
+                    <tr className="border-b border-slate-900">
+                      <td className="py-2 px-2.5 text-center border-r border-slate-900">1</td>
+                      <td className="py-2 px-2.5 border-r border-slate-900 font-bold text-slate-900">{bill.itemsSummary}</td>
+                      <td className="py-2 px-2.5 border-r border-slate-900 text-center">Hardware</td>
+                      <td className="py-2 px-2.5 border-r border-slate-900 text-center font-bold">{bill.unitsCount}</td>
+                      <td className="py-2 px-2.5 border-r border-slate-900 text-right font-mono">
                         ₹{(bill.totalAmount / 1.18).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
+                      <td className="py-2 px-2.5 text-right font-mono font-bold text-slate-900">
                         ₹{bill.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                     </tr>
@@ -170,56 +166,62 @@ export const InwardSlipModal: React.FC<InwardSlipModalProps> = ({
             </div>
           </div>
 
-          {/* Payment Status & Totals */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row justify-between gap-4">
+          {/* Financial Summary & Dues Table */}
+          <div className="flex justify-end mt-2">
+            <table className="w-80 text-xs border border-slate-900 border-collapse print-table">
+              <tbody>
+                <tr className="border-b border-slate-900">
+                  <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">Total Units Received:</td>
+                  <td className="py-1.5 px-3 font-bold text-right font-mono text-slate-900">{bill.unitsCount} Units</td>
+                </tr>
+                <tr className="border-b border-slate-900 bg-slate-50">
+                  <td className="py-1.5 px-3 font-black text-slate-900 border-r border-slate-900 uppercase">Total Invoice Value:</td>
+                  <td className="py-1.5 px-3 font-black text-right font-mono text-slate-900">
+                    ₹{bill.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+                <tr className="border-b border-slate-900">
+                  <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">Paid to Supplier:</td>
+                  <td className="py-1.5 px-3 text-right font-mono font-bold text-emerald-700">
+                    ₹{bill.paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+                <tr className="bg-rose-50/40">
+                  <td className="py-1.5 px-3 font-bold text-rose-800 border-r border-slate-900">Vendor Payable Due:</td>
+                  <td className="py-1.5 px-3 text-right font-mono font-bold text-rose-800">
+                    ₹{bill.balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Signatory Footer */}
+          <div className="border border-slate-900 rounded-b-lg p-4 mt-2 flex justify-between items-end text-xs bg-slate-50/30">
             <div>
-              <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Khata Payment Status</p>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded ${
-                    bill.paymentStatus === 'PAID FULL'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : bill.paymentStatus === 'PARTIAL DUE'
-                      ? 'bg-amber-100 text-amber-800'
-                      : 'bg-rose-100 text-rose-800'
-                  }`}
-                >
-                  {bill.paymentStatus}
-                </span>
-                <span className="text-slate-500 font-medium">{bill.dueNotice}</span>
+              <p className="font-bold text-slate-900 text-[10px] uppercase tracking-wider mb-1">Physical Verification &amp; QC:</p>
+              <p className="text-slate-500 text-[11px]">All items, barcodes, and serial IMEI numbers verified matching consignment invoice.</p>
+              <div className="mt-8 border-t border-slate-900 pt-1 w-36 text-center">
+                <p className="font-semibold text-slate-700 text-[11px]">Inward Verifier</p>
               </div>
             </div>
 
-            <div className="text-right space-y-1">
-              <div className="flex justify-between sm:justify-end gap-6 text-slate-600">
-                <span>Total Invoice:</span>
-                <span className="font-mono font-bold text-slate-900">
-                  ₹{bill.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-              <div className="flex justify-between sm:justify-end gap-6 text-slate-600">
-                <span>Amount Paid:</span>
-                <span className="font-mono font-bold text-emerald-600">
-                  ₹{bill.paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-              <div className="flex justify-between sm:justify-end gap-6 text-slate-900 font-extrabold text-sm pt-1 border-t border-slate-200">
-                <span>Payable Due:</span>
-                <span className="font-mono text-rose-700">
-                  ₹{bill.balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </span>
+            <div className="text-right">
+              <p className="text-slate-600 text-xs">For <strong className="text-slate-900">{shopName}</strong></p>
+              <div className="mt-8 border-t border-slate-900 pt-1 w-40 text-center ml-auto">
+                <p className="font-bold text-slate-900 text-xs">Store Manager Seal</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between shrink-0">
+        {/* Footer - Screen only */}
+        <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between shrink-0 no-print">
           <button
             onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
           >
-            <Printer className="w-4 h-4 text-slate-500" />
+            <Printer className="w-4 h-4" />
             <span>Print Inward Slip</span>
           </button>
           <button

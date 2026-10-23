@@ -50,7 +50,7 @@ export const SuppliersModal: React.FC<SuppliersModalProps> = ({
         <div className="px-6 py-3 bg-amber-50/70 border-b border-amber-200/60 flex items-center justify-between text-xs text-amber-900">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-amber-600" />
-            <span className="font-medium">Total Vendor Credit (Khata) Balance Outstanding:</span>
+            <span className="font-medium">Total Vendor Balance Due Outstanding:</span>
           </div>
           <span className="font-bold font-mono text-sm text-rose-700">
             ₹{totalPayables.toLocaleString('en-IN', { minimumFractionDigits: 2 })}

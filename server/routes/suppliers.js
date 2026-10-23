@@ -148,8 +148,10 @@ router.post('/:id/settle', async (req, res) => {
 // DELETE supplier
 router.delete('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    const deleted = await Supplier.findOneAndDelete({ id });
+    let deleted = await Supplier.findOneAndDelete({ id });
+    if (!deleted && id.match(/^[0-9a-fA-F]{24}$/)) {
+      deleted = await Supplier.findByIdAndDelete(id);
+    }
     if (!deleted) {
       return res.status(404).json({ success: false, message: 'Supplier not found' });
     }

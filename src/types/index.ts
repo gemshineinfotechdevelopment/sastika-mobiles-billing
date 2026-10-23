@@ -40,6 +40,17 @@ export interface Customer {
   loyaltyPoints?: number;
   avatarBg?: string;
   initials?: string;
+  ledger?: CustomerLedgerItem[];
+}
+
+export interface CustomerLedgerItem {
+  date: string;
+  billNumber?: string;
+  type: string;
+  amount: number;
+  paymentMode?: string;
+  notes?: string;
+  balanceAfter?: number;
 }
 
 export interface BillItem {

@@ -72,7 +72,6 @@ const customerSchema = new mongoose.Schema(
     },
     tier: {
       type: String,
-      enum: ['VIP MEMBER', 'REGULAR', 'KHATA RISK'],
       default: 'REGULAR',
     },
     khataBalance: {
@@ -123,14 +122,13 @@ const customerSchema = new mongoose.Schema(
 );
 
 // Auto compute initials before saving
-customerSchema.pre('save', function (next) {
+customerSchema.pre('save', function () {
   if (this.name && !this.initials) {
     const parts = this.name.trim().split(' ');
     this.initials = parts.length > 1
       ? (parts[0][0] + parts[1][0]).toUpperCase()
       : parts[0].slice(0, 2).toUpperCase();
   }
-  next();
 });
 
 export const Customer = mongoose.models.Customer || mongoose.model('Customer', customerSchema);

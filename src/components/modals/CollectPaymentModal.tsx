@@ -49,7 +49,7 @@ export const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
               <IndianRupee className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-sm">Collect Khata Due</h3>
+              <h3 className="font-bold text-slate-900 text-sm">Collect Due Payment</h3>
               <p className="text-slate-500 text-xs">Record ledger credit settlement</p>
             </div>
           </div>
@@ -65,8 +65,7 @@ export const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {isSuccess && (
             <div className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs p-3 rounded-xl flex items-center gap-2 font-medium">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Payment of ₹
-              {parseFloat(amount).toLocaleString('en-IN')} received & Khata updated!
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Payment of ₹{parseFloat(amount).toLocaleString('en-IN')} received & Balance updated!
             </div>
           )}
 

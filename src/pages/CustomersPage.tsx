@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Search,
   UserPlus,
-  Banknote,
+  IndianRupee,
   FileText,
   X,
   Phone,
@@ -115,10 +115,10 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Customers & Khata
+            Customers & Ledger
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Total Customers: <strong className="text-slate-900 font-bold">{customers.length}</strong> • Total Khata Pending: <strong className="text-rose-600 font-bold font-sans">₹{totalKhataDue.toLocaleString('en-IN')}</strong> ({dueCustomersCount} customers)
+            Total Customers: <strong className="text-slate-900 font-bold">{customers.length}</strong> • Total Due Pending: <strong className="text-rose-600 font-bold font-sans">₹{totalKhataDue.toLocaleString('en-IN')}</strong> ({dueCustomersCount} customers)
           </p>
         </div>
 
@@ -172,7 +172,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              {tab === 'due' ? 'Khata Due' : tab}
+              {tab === 'due' ? 'Balance Due' : tab}
             </button>
           ))}
         </div>
@@ -187,7 +187,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                 <th className="py-3 px-4">Customer Name</th>
                 <th className="py-3 px-4">Phone Number</th>
                 <th className="py-3 px-4">Address</th>
-                <th className="py-3 px-4 text-right">Khata Due</th>
+                <th className="py-3 px-4 text-right">Balance Due</th>
                 <th className="py-3 px-4 text-right">Total Purchases</th>
                 <th className="py-3 px-4 text-center">Actions</th>
               </tr>
@@ -208,7 +208,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                         {customer.name}
                         {customer.tier && (
                           <span className="ml-1.5 px-1.5 py-0.2 rounded text-[10px] font-semibold bg-blue-50 text-blue-700">
-                            {customer.tier}
+                            {customer.tier === 'KHATA RISK' ? 'HIGH RISK' : customer.tier}
                           </span>
                         )}
                       </td>
@@ -243,7 +243,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
                               onClick={() => setSelectedCustomerForPayment(customer)}
                               className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold cursor-pointer shadow-2xs"
                             >
-                              <Banknote className="w-3 h-3" />
+                              <IndianRupee className="w-3 h-3" />
                               <span>Collect</span>
                             </button>
                           )}

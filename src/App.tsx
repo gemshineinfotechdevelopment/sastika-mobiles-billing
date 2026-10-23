@@ -63,6 +63,11 @@ export function App() {
     loadData();
   }, []);
 
+  // Reload fresh data from database on every tab change
+  useEffect(() => {
+    loadData();
+  }, [activeTab]);
+
   // Keyboard shortcut listener: F2 triggers "New Bill", F4 triggers "Add Product"
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -79,10 +84,9 @@ export function App() {
   }, []);
 
   const handleInvoiceCreated = (newBill: Bill) => {
-    setBills((prev) => [newBill, ...prev]);
     setSelectedBill(newBill);
-    // Reload products to update stock
-    api.getProducts().then((res) => setProducts(res.products || []));
+    // Reload both bills and products directly from database to reflect new bill and decremented stock
+    loadData();
   };
 
   const handleSearchSubmit = (query: string) => {

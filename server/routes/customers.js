@@ -174,7 +174,7 @@ router.post('/:id/collect-payment', async (req, res) => {
       type: 'PAYMENT',
       amount: payAmount,
       paymentMode,
-      notes: notes || 'Khata credit settlement',
+      notes: notes || 'Credit balance settlement',
       balanceAfter: newBalance,
     });
 
@@ -206,7 +206,10 @@ router.post('/:id/collect-payment', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await Customer.findOneAndDelete({ id });
+    let deleted = await Customer.findOneAndDelete({ id });
+    if (!deleted && id.match(/^[0-9a-fA-F]{24}$/)) {
+      deleted = await Customer.findByIdAndDelete(id);
+    }
     if (!deleted) {
       return res.status(404).json({ success: false, message: 'Customer not found' });
     }

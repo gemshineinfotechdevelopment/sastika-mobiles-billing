@@ -44,7 +44,7 @@ export const SendReminderModal: React.FC<SendReminderModalProps> = ({
               <MessageSquare className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-sm">Send Khata Payment Reminders</h3>
+              <h3 className="font-bold text-slate-900 text-sm">Send Payment Reminders</h3>
               <p className="text-slate-500 text-xs">WhatsApp &amp; SMS automated payment link dispatch</p>
             </div>
           </div>
@@ -68,7 +68,7 @@ export const SendReminderModal: React.FC<SendReminderModalProps> = ({
               <div className="p-4 bg-rose-50/70 border border-rose-200/70 rounded-xl flex items-center justify-between">
                 <div>
                   <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">
-                    Outstanding Khata Balance
+                    Outstanding Balance Due
                   </span>
                   <span className="text-2xl font-extrabold text-slate-900 font-mono">
                     ₹{totalDue.toLocaleString('en-IN')}.00

@@ -155,7 +155,10 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(billData),
     });
-    if (!res.ok) throw new Error('Failed to generate bill');
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || 'Failed to generate bill');
+    }
     return res.json();
   },
 

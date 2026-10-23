@@ -26,6 +26,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   products: initialProducts,
   onProductAdded,
 }) => {
+
+  
   const [productList, setProductList] = useState<Product[]>(initialProducts);
 
   useEffect(() => {
@@ -33,6 +35,17 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       setProductList(initialProducts);
     }
   }, [initialProducts]);
+
+  // Fetch live products directly from MongoDB on mount
+  useEffect(() => {
+    api.getProducts()
+      .then((res) => {
+        if (res && res.products) {
+          setProductList(res.products);
+        }
+      })
+      .catch((err) => console.warn('Could not load live products from database:', err));
+  }, []);
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');

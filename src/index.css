@@ -12,3 +12,199 @@
     -webkit-font-smoothing: antialiased;
   }
 }
+
+.print-only {
+  display: none !important;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 8mm 10mm 8mm;
+  }
+
+  /* Reset layout for printer */
+  html, body {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    font-size: 11px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide screen-only chrome */
+  .no-print,
+  button,
+  nav,
+  aside,
+  header,
+  footer,
+  input,
+  select,
+  .no-print-area {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Ensure modal backdrops disappear in print */
+  .fixed.inset-0 {
+    position: static !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    inset: auto !important;
+    z-index: auto !important;
+  }
+
+  .fixed.inset-0 > div {
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Tables: Clean, high-contrast, structured grid format */
+  table.print-table,
+  .print-table-container table,
+  #printable-invoice table,
+  #printable-ledger table,
+  #printable-slip table,
+  #printable-zreport table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 6px !important;
+    margin-bottom: 8px !important;
+    page-break-inside: auto !important;
+  }
+
+  table.print-table th,
+  table.print-table td,
+  .print-table-container th,
+  .print-table-container td,
+  #printable-invoice th,
+  #printable-invoice td,
+  #printable-ledger th,
+  #printable-ledger td,
+  #printable-slip th,
+  #printable-slip td,
+  #printable-zreport th,
+  #printable-zreport td {
+    border: 1px solid #1e293b !important;
+    padding: 5px 7px !important;
+    color: #000000 !important;
+    text-align: inherit;
+    font-size: 10px !important;
+    line-height: 1.35 !important;
+  }
+
+  table.print-table th,
+  .print-table-container th,
+  #printable-invoice th,
+  #printable-ledger th,
+  #printable-slip th,
+  #printable-zreport th {
+    background-color: #f1f5f9 !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.03em !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+  }
+
+  /* Text & Contrast enforcement */
+  p, span, h1, h2, h3, h4, h5, td, th, div {
+    color: #000000 !important;
+    text-shadow: none !important;
+  }
+
+  .text-indigo-600, .text-blue-600, .text-blue-700, .text-indigo-700 {
+    color: #0f172a !important;
+  }
+
+  .text-rose-600, .text-rose-700, .text-red-600, .text-red-700 {
+    color: #000000 !important;
+    font-weight: 700 !important;
+  }
+
+  .text-emerald-600, .text-emerald-700, .text-green-600, .text-green-700 {
+    color: #000000 !important;
+  }
+
+  .border, .border-b, .border-t, .border-l, .border-r {
+    border-color: #334155 !important;
+  }
+
+  /* Paper Format Specific Modes */
+  .format-thermal-80mm {
+    width: 76mm !important;
+    max-width: 76mm !important;
+    margin: 0 auto !important;
+    font-size: 10.5px !important;
+    font-family: monospace, monospace !important;
+  }
+
+  .format-thermal-58mm {
+    width: 52mm !important;
+    max-width: 52mm !important;
+    margin: 0 auto !important;
+    font-size: 9px !important;
+    font-family: monospace, monospace !important;
+  }
+
+  .format-a4-laser {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    font-size: 11px !important;
+  }
+
+  /* Thermal Receipts: Clean borderless cells with dashed dividers */
+  .format-thermal-80mm table th,
+  .format-thermal-80mm table td,
+  .format-thermal-58mm table th,
+  .format-thermal-58mm table td {
+    border: none !important;
+    background-color: transparent !important;
+    padding: 2px 3px !important;
+  }
+
+  .format-thermal-80mm .thermal-border-t,
+  .format-thermal-58mm .thermal-border-t {
+    border-top: 1px dashed #000000 !important;
+  }
+
+  .format-thermal-80mm .thermal-border-b,
+  .format-thermal-58mm .thermal-border-b {
+    border-bottom: 1px dashed #000000 !important;
+  }
+}

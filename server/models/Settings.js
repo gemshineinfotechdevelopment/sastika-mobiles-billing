@@ -41,8 +41,7 @@ const settingsSchema = new mongoose.Schema(
     thermalPrinter: {
       paperSize: {
         type: String,
-        enum: ['3-inch', '2-inch', 'A4'],
-        default: '3-inch',
+        default: '3-inch Thermal (80mm)',
       },
       showQrCode: {
         type: Boolean,

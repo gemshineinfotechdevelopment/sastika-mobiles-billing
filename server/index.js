@@ -116,21 +116,25 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/upload', uploadRouter);
 
+// Unmatched API routes return 404 JSON
+app.all('/api/*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `API endpoint ${req.method} ${req.originalUrl} not found`,
+  });
+});
+
 // ─── Serve Frontend (Production) ─────────────────────────────────────
-// In production, serve the Vite-built frontend from ../dist
 const distPath = path.resolve(__dirname, '../dist');
 app.use(express.static(distPath));
 
 // SPA Fallback: any non-API route serves index.html so React handles routing
 app.get('*', (req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
-});
-
-// 404 Handler (only for unmatched API routes now)
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: `Endpoint ${req.method} ${req.originalUrl} not found`,
+  const indexPath = path.join(distPath, 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      res.status(200).send('Sastika Mobiles Billing API is running. (Vite Dev Server is at http://localhost:5173)');
+    }
   });
 });
 

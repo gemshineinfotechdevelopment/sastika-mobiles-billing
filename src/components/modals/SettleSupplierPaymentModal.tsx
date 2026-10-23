@@ -50,7 +50,7 @@ export const SettleSupplierPaymentModal: React.FC<SettleSupplierPaymentModalProp
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-sm">Pay Supplier Due</h3>
-              <p className="text-slate-500 text-xs">Record vendor Khata settlement</p>
+              <p className="text-slate-500 text-xs">Record vendor payment settlement</p>
             </div>
           </div>
           <button
@@ -66,7 +66,7 @@ export const SettleSupplierPaymentModal: React.FC<SettleSupplierPaymentModalProp
           {isSuccess && (
             <div className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs p-3 rounded-xl flex items-center gap-2 font-medium">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              Payment of ₹{parseFloat(payAmount).toLocaleString('en-IN')} recorded &amp; Khata updated!
+              Payment of ₹{parseFloat(payAmount).toLocaleString('en-IN')} recorded &amp; Balance updated!
             </div>
           )}
 

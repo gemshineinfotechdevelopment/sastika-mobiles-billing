@@ -199,9 +199,13 @@ router.post('/:id/settle-payment', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Valid payment amount is required' });
     }
 
-    const purchase = await PurchaseBill.findOne({
+    let purchase = await PurchaseBill.findOne({
       $or: [{ id }, { supplierInvoiceNumber: id }],
     });
+
+    if (!purchase && id.match(/^[0-9a-fA-F]{24}$/)) {
+      purchase = await PurchaseBill.findById(id);
+    }
 
     if (!purchase) {
       return res.status(404).json({ success: false, message: 'Purchase bill not found' });
@@ -233,6 +237,28 @@ router.post('/:id/settle-payment', async (req, res) => {
       message: `Settled ₹${settleAmount.toLocaleString('en-IN')} towards ${purchase.supplierInvoiceNumber}`,
       purchase,
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// DELETE purchase bill
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let deleted = await PurchaseBill.findOneAndDelete({
+      $or: [{ id }, { supplierInvoiceNumber: id }],
+    });
+
+    if (!deleted && id.match(/^[0-9a-fA-F]{24}$/)) {
+      deleted = await PurchaseBill.findByIdAndDelete(id);
+    }
+
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Purchase bill not found' });
+    }
+
+    res.json({ success: true, message: 'Purchase bill removed successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

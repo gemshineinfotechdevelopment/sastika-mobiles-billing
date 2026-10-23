@@ -30,6 +30,17 @@ export const SalesPage: React.FC<SalesPageProps> = ({
     setBillsList(propBills || []);
   }, [propBills]);
 
+  // Fetch directly from live MongoDB database on mount
+  useEffect(() => {
+    api.getBills()
+      .then((res) => {
+        if (res && res.bills) {
+          setBillsList(res.bills);
+        }
+      })
+      .catch((err) => console.warn('Could not load live bills from database:', err));
+  }, []);
+
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<'All' | 'Paid' | 'Due' | 'Cancelled'>('All');

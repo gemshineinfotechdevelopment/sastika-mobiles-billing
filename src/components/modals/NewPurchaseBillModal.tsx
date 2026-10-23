@@ -171,7 +171,7 @@ export const NewPurchaseBillModal: React.FC<NewPurchaseBillModalProps> = ({
                 </span>
               </div>
               <p className="text-slate-500 text-xs">
-                Inward stock addition, IMEI logging, and supplier Khata recording
+                Inward stock addition, IMEI logging, and supplier bill recording
               </p>
             </div>
           </div>
@@ -446,7 +446,7 @@ export const NewPurchaseBillModal: React.FC<NewPurchaseBillModalProps> = ({
                 </span>
               </div>
               <div className="flex justify-between text-xs pt-1 border-t border-slate-200/80">
-                <span className="text-slate-500">Vendor Khata Payable Due:</span>
+                <span className="text-slate-500">Vendor Payable Due:</span>
                 <span
                   className={`font-mono font-bold ${
                     balanceDue > 0 ? 'text-rose-700' : 'text-emerald-700'
