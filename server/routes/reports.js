@@ -63,11 +63,11 @@ router.get('/analytics', async (req, res) => {
     const reorderAlerts = criticalStockProducts.map((p) => ({
       id: p.id,
       name: p.name,
-      subtext: `${p.variant || p.model || 'Standard'} | Rate: ₹${p.price.toLocaleString('en-IN')}`,
-      rate: p.price,
-      availUnits: p.stock,
-      minSafe: p.minThreshold,
-      isUrgent: p.stock <= 1,
+      subtext: `${p.variant || p.model || 'Standard'} | Rate: ₹${(p.price || 0).toLocaleString('en-IN')}`,
+      rate: p.price || 0,
+      availUnits: p.stock || 0,
+      minSafe: p.minThreshold || 4,
+      isUrgent: (p.stock || 0) <= 1,
     }));
 
     // 5. Payment mode breakdown from actual bills
