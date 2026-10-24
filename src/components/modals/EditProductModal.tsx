@@ -9,6 +9,7 @@ interface EditProductModalProps {
   onClose: () => void;
   onProductUpdated: (updatedProduct: Product) => void;
   onProductDeleted?: (id: string) => void;
+  categories?: string[];
 }
 
 export const EditProductModal: React.FC<EditProductModalProps> = ({
@@ -17,6 +18,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
   onClose,
   onProductUpdated,
   onProductDeleted,
+  categories = [],
 }) => {
   if (!isOpen || !product) return null;
 
@@ -139,6 +141,21 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
               />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Category</label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
+              >
+                {Array.from(new Set([formData.category, ...categories])).filter(Boolean).map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

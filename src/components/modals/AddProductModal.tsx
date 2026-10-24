@@ -1,22 +1,44 @@
-import React, { useState } from 'react';
-import { X, PackagePlus, Check, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, PackagePlus, Check, Sparkles, Plus } from 'lucide-react';
 import { api } from '../../services/api';
-import type { Product } from '../../types';
+import type { Product, CategoryItem } from '../../types';
+import { AddCategoryModal } from './AddCategoryModal';
+
+const DEFAULT_CATEGORIES = [
+  'Smartphones',
+  'Fast Chargers',
+  'TWS Earbuds & Neckbands',
+  'Screen Protectors',
+  'Smartwatches',
+  'Accessories',
+];
 
 interface AddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProductAdded?: (newProduct?: Product) => void;
+  categories?: string[];
+  onCategoryAdded?: (categoryName: string) => void;
+  initialCategory?: string;
 }
 
 export const AddProductModal: React.FC<AddProductModalProps> = ({
   isOpen,
   onClose,
   onProductAdded,
+  categories: propCategories,
+  onCategoryAdded,
+  initialCategory,
 }) => {
+  const [categoryOptions, setCategoryOptions] = useState<string[]>(() => {
+    const set = new Set([...DEFAULT_CATEGORIES, ...(propCategories || [])]);
+    return Array.from(set);
+  });
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
-    category: 'Smartphones',
+    category: initialCategory || 'Smartphones',
     brand: '',
     model: '',
     variant: '',
@@ -34,6 +56,30 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Sync propCategories or fetch live categories on open
+  useEffect(() => {
+    if (isOpen) {
+      api.getCategories()
+        .then((res) => {
+          if (res && res.categories) {
+            const apiNames = res.categories.map((c: any) => (typeof c === 'string' ? c : c.name));
+            setCategoryOptions((prev) => {
+              const combined = new Set([...prev, ...apiNames, ...(propCategories || [])]);
+              return Array.from(combined);
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen, propCategories]);
+
+  useEffect(() => {
+    if (initialCategory) {
+      setCategoryOptions((prev) => (prev.includes(initialCategory) ? prev : [...prev, initialCategory]));
+      handleCategoryChange(initialCategory);
+    }
+  }, [initialCategory]);
+
   if (!isOpen) return null;
 
   const cost = Number(formData.costPrice) || 0;
@@ -41,6 +87,11 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   const marginPercent = cost > 0 && selling > 0 ? (((selling - cost) / cost) * 100).toFixed(1) : null;
 
   const handleCategoryChange = (cat: string) => {
+    if (cat === '__NEW_CATEGORY__') {
+      setShowAddCategoryModal(true);
+      return;
+    }
+
     let hsn = '85171300';
     let defaultRack = 'Rack A1';
     let dualImei = false;
@@ -52,7 +103,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     } else if (cat === 'Fast Chargers') {
       hsn = '85044090';
       defaultRack = 'Rack C1';
-    } else if (cat === 'TWS Earbuds & Neckbands') {
+    } else if (cat === 'TWS Earbuds & Neckbands' || cat === 'TWS Earbuds') {
       hsn = '85183000';
       defaultRack = 'Rack B1';
     } else if (cat === 'Screen Protectors') {
@@ -61,6 +112,13 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     } else if (cat === 'Smartwatches') {
       hsn = '85176290';
       defaultRack = 'Rack D1';
+    } else if (cat.toLowerCase().includes('cover') || cat.toLowerCase().includes('case')) {
+      hsn = '39269099';
+      defaultRack = 'Rack Wall-Covers';
+    } else if (cat.toLowerCase().includes('phone') || cat.toLowerCase().includes('mobile')) {
+      hsn = '85171300';
+      defaultRack = 'Rack A2';
+      dualImei = true;
     }
 
     setFormData((prev) => ({
@@ -70,6 +128,25 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       rackLocation: defaultRack,
       isDualImei: dualImei,
     }));
+  };
+
+  const handleNewCategoryCreated = (newCatName: string, categoryItem?: CategoryItem) => {
+    setCategoryOptions((prev) => {
+      const exists = prev.some((c) => c.toLowerCase() === newCatName.toLowerCase());
+      return exists ? prev : [...prev, newCatName];
+    });
+
+    setFormData((prev) => ({
+      ...prev,
+      category: newCatName,
+      hsnCode: categoryItem?.hsnCode || prev.hsnCode,
+      rackLocation: categoryItem?.defaultRack || prev.rackLocation,
+      isDualImei: categoryItem?.isDualImei ?? prev.isDualImei,
+    }));
+
+    if (onCategoryAdded) {
+      onCategoryAdded(newCatName);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -193,18 +270,31 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
             {/* Category */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Category</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700">Category *</label>
+                <button
+                  type="button"
+                  onClick={() => setShowAddCategoryModal(true)}
+                  className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Create new category"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>+ New Category</span>
+                </button>
+              </div>
               <select
                 value={formData.category}
                 onChange={(e) => handleCategoryChange(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
+                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600 font-medium"
               >
-                <option value="Smartphones">Smartphones</option>
-                <option value="Fast Chargers">Fast Chargers</option>
-                <option value="TWS Earbuds & Neckbands">TWS Earbuds & Neckbands</option>
-                <option value="Screen Protectors">Screen Protectors</option>
-                <option value="Smartwatches">Smartwatches</option>
-                <option value="Accessories">Other Accessories</option>
+                {categoryOptions.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+                <option value="__NEW_CATEGORY__" className="font-bold text-indigo-600 bg-indigo-50">
+                  ➕ + Add New Category...
+                </option>
               </select>
             </div>
 
@@ -413,6 +503,13 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Sub-modal: Add New Category on the fly */}
+      <AddCategoryModal
+        isOpen={showAddCategoryModal}
+        onClose={() => setShowAddCategoryModal(false)}
+        onCategoryAdded={handleNewCategoryCreated}
+      />
     </div>
   );
 };

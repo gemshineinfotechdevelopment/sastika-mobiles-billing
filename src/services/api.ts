@@ -6,6 +6,7 @@ import type {
   ShopInfo,
   Supplier,
   PurchaseBill,
+  CategoryItem,
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -331,6 +332,95 @@ export const api = {
       body: formData,
     });
     if (!res.ok) throw new Error('Failed to upload image to Cloudinary');
+    return res.json();
+  },
+
+  // Categories
+  async getCategories(): Promise<{ success: boolean; categories: CategoryItem[]; count: number }> {
+    try {
+      const res = await fetch(`${API_BASE}/categories`);
+      if (res.ok) {
+        const data = await res.json();
+        // Cache in localStorage for offline resiliency
+        if (data && data.categories) {
+          localStorage.setItem('sastika_categories_cache', JSON.stringify(data.categories));
+        }
+        return data;
+      }
+    } catch (err) {
+      console.warn('API getCategories error, falling back to cache:', err);
+    }
+
+    // Offline / LocalStorage fallback
+    const cached = localStorage.getItem('sastika_categories_cache');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        return { success: true, categories: parsed, count: parsed.length };
+      } catch {
+        // continue to default
+      }
+    }
+
+    const defaultList: CategoryItem[] = [
+      { name: 'Smartphones', hsnCode: '85171300', defaultRack: 'Rack A1', isDualImei: true },
+      { name: 'Fast Chargers', hsnCode: '85044090', defaultRack: 'Rack C1', isDualImei: false },
+      { name: 'TWS Earbuds & Neckbands', hsnCode: '85183000', defaultRack: 'Rack B1', isDualImei: false },
+      { name: 'Screen Protectors', hsnCode: '70071900', defaultRack: 'Rack Front-Spindle', isDualImei: false },
+      { name: 'Smartwatches', hsnCode: '85176290', defaultRack: 'Rack D1', isDualImei: false },
+      { name: 'Accessories', hsnCode: '85177090', defaultRack: 'Rack E1', isDualImei: false },
+    ];
+    return { success: true, categories: defaultList, count: defaultList.length };
+  },
+
+  async addCategory(categoryData: {
+    name: string;
+    description?: string;
+    hsnCode?: string;
+    defaultRack?: string;
+    isDualImei?: boolean;
+  }): Promise<{ success: boolean; message: string; category: CategoryItem }> {
+    const trimmedName = categoryData.name.trim();
+    try {
+      const res = await fetch(`${API_BASE}/categories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(categoryData),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data;
+      }
+    } catch (err) {
+      console.warn('API addCategory offline fallback:', err);
+    }
+
+    // Offline / LocalStorage fallback
+    const cached = localStorage.getItem('sastika_categories_cache');
+    let list: CategoryItem[] = [];
+    if (cached) {
+      try { list = JSON.parse(cached); } catch { list = []; }
+    }
+    const newCat: CategoryItem = {
+      name: trimmedName,
+      description: categoryData.description || '',
+      hsnCode: categoryData.hsnCode || '85171300',
+      defaultRack: categoryData.defaultRack || 'Rack A1',
+      isDualImei: Boolean(categoryData.isDualImei),
+      createdAt: new Date().toISOString(),
+    };
+    if (!list.some(c => c.name.toLowerCase() === trimmedName.toLowerCase())) {
+      list.push(newCat);
+      localStorage.setItem('sastika_categories_cache', JSON.stringify(list));
+    }
+    return { success: true, message: 'Category added locally', category: newCat };
+  },
+
+  async deleteCategory(idOrName: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/categories/${encodeURIComponent(idOrName)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to delete category');
     return res.json();
   },
 };

@@ -40,6 +40,35 @@ interface PosProduct {
   imeiList?: string[];
 }
 
+const BILLING_SESSION_STORAGE_KEY = 'sastika_pos_billing_session';
+
+interface BillingDraftSession {
+  cartItems: BillItem[];
+  selectedCustomer: Customer;
+  customerMode: 'walkin' | 'registered';
+  discount: number;
+  discountLabel: string;
+  paymentMode: 'UPI' | 'Cash' | 'Card' | 'Credit';
+  invoiceNotes: string;
+  viewMode: 'catalog' | 'bill';
+  savedAt: number;
+}
+
+const loadSavedBillingSession = (): Partial<BillingDraftSession> => {
+  try {
+    const raw = localStorage.getItem(BILLING_SESSION_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not read billing session from localStorage:', err);
+  }
+  return {};
+};
+
 export const BillingPage: React.FC<BillingPageProps> = ({
   products: serverProducts,
   onInvoiceCreated,
@@ -48,8 +77,15 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const scanInputRef = useRef<HTMLInputElement>(null);
   const billScanInputRef = useRef<HTMLInputElement>(null);
 
+  const initialDraftRef = useRef(loadSavedBillingSession());
+  const initialDraft = initialDraftRef.current;
+
   // View state: 'catalog' | 'bill'
-  const [viewMode, setViewMode] = useState<'catalog' | 'bill'>('catalog');
+  const [viewMode, setViewMode] = useState<'catalog' | 'bill'>(() => {
+    if (initialDraft.viewMode) return initialDraft.viewMode;
+    if (initialDraft.cartItems && initialDraft.cartItems.length > 0) return 'bill';
+    return 'catalog';
+  });
 
   // Live products state synced with MongoDB
   const [liveProducts, setLiveProducts] = useState<Product[]>(serverProducts || []);
@@ -109,10 +145,16 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
   // Customer state: loaded from MongoDB database
   const [customerList, setCustomerList] = useState<Customer[]>([]);
-  const [customerMode, setCustomerMode] = useState<'walkin' | 'registered'>('walkin');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer>({
-    name: 'Walk-in Customer',
-    phone: 'Counter Sale',
+  const [customerMode, setCustomerMode] = useState<'walkin' | 'registered'>(() => {
+    return initialDraft.customerMode || 'walkin';
+  });
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer>(() => {
+    return (
+      initialDraft.selectedCustomer || {
+        name: 'Walk-in Customer',
+        phone: 'Counter Sale',
+      }
+    );
   });
 
   useEffect(() => {
@@ -121,21 +163,93 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       .then((res) => {
         if (res && res.customers && res.customers.length > 0) {
           setCustomerList(res.customers);
-          setSelectedCustomer(res.customers[0]);
+          if (customerMode === 'registered' && !initialDraft.selectedCustomer) {
+            setSelectedCustomer(res.customers[0]);
+          }
         }
       })
       .catch((err) => console.warn('Could not load customers for billing:', err));
   }, []);
 
-  // Active invoice items
-  const [cartItems, setCartItems] = useState<BillItem[]>([]);
+  // Active invoice items (restored from persistent session)
+  const [cartItems, setCartItems] = useState<BillItem[]>(() => {
+    return Array.isArray(initialDraft.cartItems) ? initialDraft.cartItems : [];
+  });
 
-  // Financial Discount & Payment Mode
-  const [discount, setDiscount] = useState<number>(0);
-  const [discountLabel, setDiscountLabel] = useState('Store Discount');
-  const [paymentMode, setPaymentMode] = useState<'UPI' | 'Cash' | 'Card' | 'Credit'>('UPI');
-  const [invoiceNotes, setInvoiceNotes] = useState('Counter POS Sale');
+  // Financial Discount & Payment Mode (restored from persistent session)
+  const [discount, setDiscount] = useState<number>(() => {
+    return typeof initialDraft.discount === 'number' ? initialDraft.discount : 0;
+  });
+  const [discountLabel, setDiscountLabel] = useState<string>(() => {
+    return initialDraft.discountLabel || 'Store Discount';
+  });
+  const [paymentMode, setPaymentMode] = useState<'UPI' | 'Cash' | 'Card' | 'Credit'>(() => {
+    return initialDraft.paymentMode || 'UPI';
+  });
+  const [invoiceNotes, setInvoiceNotes] = useState<string>(() => {
+    return initialDraft.invoiceNotes || 'Counter POS Sale';
+  });
   const [submitting, setSubmitting] = useState(false);
+
+  // Persist Billing Session across page refreshes, tab switching, and browser restart
+  useEffect(() => {
+    try {
+      const sessionData: BillingDraftSession = {
+        cartItems,
+        selectedCustomer,
+        customerMode,
+        discount,
+        discountLabel,
+        paymentMode,
+        invoiceNotes,
+        viewMode,
+        savedAt: Date.now(),
+      };
+      localStorage.setItem(BILLING_SESSION_STORAGE_KEY, JSON.stringify(sessionData));
+    } catch (err) {
+      console.warn('Failed to save billing session:', err);
+    }
+  }, [
+    cartItems,
+    selectedCustomer,
+    customerMode,
+    discount,
+    discountLabel,
+    paymentMode,
+    invoiceNotes,
+    viewMode,
+  ]);
+
+  // Synchronize across multiple browser tabs automatically
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === BILLING_SESSION_STORAGE_KEY) {
+        if (!e.newValue) {
+          setCartItems([]);
+          setDiscount(0);
+          setSelectedCustomer({ name: 'Walk-in Customer', phone: 'Counter Sale' });
+          setCustomerMode('walkin');
+          return;
+        }
+        try {
+          const parsed: BillingDraftSession = JSON.parse(e.newValue);
+          if (Array.isArray(parsed.cartItems)) setCartItems(parsed.cartItems);
+          if (parsed.selectedCustomer) setSelectedCustomer(parsed.selectedCustomer);
+          if (parsed.customerMode) setCustomerMode(parsed.customerMode);
+          if (typeof parsed.discount === 'number') setDiscount(parsed.discount);
+          if (parsed.discountLabel) setDiscountLabel(parsed.discountLabel);
+          if (parsed.paymentMode) setPaymentMode(parsed.paymentMode);
+          if (parsed.invoiceNotes) setInvoiceNotes(parsed.invoiceNotes);
+          if (parsed.viewMode) setViewMode(parsed.viewMode);
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   // IMEI Edit Modal State
   const [editingImeiIndex, setEditingImeiIndex] = useState<number | null>(null);
@@ -345,9 +459,12 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
       const res = await api.createBill(billData);
       if (res.success && res.bill) {
+        localStorage.removeItem(BILLING_SESSION_STORAGE_KEY);
         onInvoiceCreated(res.bill);
         setCartItems([]);
         setDiscount(0);
+        setSelectedCustomer({ name: 'Walk-in Customer', phone: 'Counter Sale' });
+        setCustomerMode('walkin');
         setViewMode('catalog');
         // Refresh local products to reflect decremented stock
         api.getProducts().then((pRes) => {
@@ -373,9 +490,12 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         paymentMode,
         notes: 'Thanks for shopping at Sastika Mobiles!',
       };
+      localStorage.removeItem(BILLING_SESSION_STORAGE_KEY);
       onInvoiceCreated(localBill);
       setCartItems([]);
       setDiscount(0);
+      setSelectedCustomer({ name: 'Walk-in Customer', phone: 'Counter Sale' });
+      setCustomerMode('walkin');
       setViewMode('catalog');
     } finally {
       setSubmitting(false);
@@ -428,6 +548,15 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                 <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wider border border-blue-200/60">
                   Active POS Bill
                 </span>
+                {cartItems.length > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200/80"
+                    title="Bill session is auto-saved and restored across browser refresh and tab switching"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Session Protected ({cartItems.length} {cartItems.length === 1 ? 'item' : 'items'})</span>
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
                 <span>Date: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
@@ -442,8 +571,11 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               type="button"
               onClick={() => {
                 if (cartItems.length === 0 || window.confirm('Clear all current invoice items and start fresh?')) {
+                  localStorage.removeItem(BILLING_SESSION_STORAGE_KEY);
                   setCartItems([]);
                   setDiscount(0);
+                  setSelectedCustomer({ name: 'Walk-in Customer', phone: 'Counter Sale' });
+                  setCustomerMode('walkin');
                   setTimeout(() => billScanInputRef.current?.focus(), 50);
                 }
               }}
@@ -505,19 +637,59 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
           {/* Customer Form Info */}
           {customerMode === 'walkin' ? (
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-xs">
-                  WI
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3 text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-xs">
+                    WI
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-800 text-sm">Walk-in Customer (Counter Sale)</p>
+                    <p className="text-slate-500 text-[11px]">Instant retail sale • Name & Mobile automatically preserved</p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 self-start sm:self-auto">
+                  Quick Checkout
+                </span>
+              </div>
+
+              {/* Optional Quick Customer Details for Walk-in */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/60">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Customer Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedCustomer.name === 'Walk-in Customer' ? '' : selectedCustomer.name}
+                    onChange={(e) =>
+                      setSelectedCustomer((prev) => ({
+                        ...prev,
+                        name: e.target.value.trim() ? e.target.value : 'Walk-in Customer',
+                      }))
+                    }
+                    placeholder="Walk-in Customer (or enter name)"
+                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-blue-500 font-medium"
+                  />
                 </div>
                 <div>
-                  <p className="font-bold text-slate-800 text-sm">Walk-in Customer (Counter Sale)</p>
-                  <p className="text-slate-500 text-[11px]">Instant retail sale • No customer profile required</p>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Mobile Number (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedCustomer.phone === 'Counter Sale' ? '' : selectedCustomer.phone}
+                    onChange={(e) =>
+                      setSelectedCustomer((prev) => ({
+                        ...prev,
+                        phone: e.target.value.trim() ? e.target.value : 'Counter Sale',
+                      }))
+                    }
+                    placeholder="e.g. 9876543210 (or leave blank)"
+                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-blue-500 font-mono"
+                  />
                 </div>
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 self-start sm:self-auto">
-                Quick Checkout
-              </span>
             </div>
           ) : (
             <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 space-y-3">

@@ -19,6 +19,7 @@ import suppliersRouter from './routes/suppliers.js';
 import reportsRouter from './routes/reports.js';
 import settingsRouter from './routes/settings.js';
 import uploadRouter from './routes/upload.js';
+import categoriesRouter from './routes/categories.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -115,6 +116,7 @@ app.use('/api/suppliers', suppliersRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/upload', uploadRouter);
+app.use('/api/categories', categoriesRouter);
 
 // Unmatched API routes return 404 JSON
 app.all('/api/*', (req, res) => {

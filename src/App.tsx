@@ -21,7 +21,37 @@ import { AlertCircle, X } from 'lucide-react';
 import './App.css';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+  const [activeTab, setActiveTab] = useState<NavTab>(() => {
+    try {
+      const saved = localStorage.getItem('sastika_active_tab');
+      if (
+        saved &&
+        [
+          'dashboard',
+          'billing',
+          'products',
+          'sales',
+          'customers',
+          'purchases',
+          'reports',
+          'settings',
+        ].includes(saved)
+      ) {
+        return saved as NavTab;
+      }
+    } catch {
+      // fallback
+    }
+    return 'dashboard';
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sastika_active_tab', activeTab);
+    } catch {
+      // ignore
+    }
+  }, [activeTab]);
   const [serverHealth, setServerHealth] = useState<HealthResponse | null>(null);
   const [serverLoading, setServerLoading] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
