@@ -28,15 +28,10 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
     brand: product.brand,
     model: product.model,
     variant: product.variant || '',
-    sku: product.sku || '',
     price: product.price.toString(),
     costPrice: (product.costPrice || 0).toString(),
     stock: product.stock.toString(),
     minThreshold: (product.minThreshold || 4).toString(),
-    rackLocation: product.rackLocation || '',
-    gstRate: product.gstRate || 18,
-    hsnCode: product.hsnCode || '85171300',
-    imeiNumbers: product.imeiNumbers ? product.imeiNumbers.join(', ') : '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -50,10 +45,6 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
     e.preventDefault();
     setLoading(true);
 
-    const imeiList = formData.imeiNumbers
-      ? formData.imeiNumbers.split(',').map((s) => s.trim()).filter(Boolean)
-      : [];
-
     const updated: Product = {
       ...product,
       name: formData.name,
@@ -61,20 +52,11 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
       brand: formData.brand,
       model: formData.model,
       variant: formData.variant || undefined,
-      sku: formData.sku,
       price: Number(formData.price),
       costPrice: Number(formData.costPrice) || 0,
       margin: marginPercent ? Number(marginPercent) : undefined,
       stock: Number(formData.stock) || 0,
       minThreshold: Number(formData.minThreshold) || 4,
-      rackLocation: formData.rackLocation,
-      gstRate: Number(formData.gstRate),
-      hsnCode: formData.hsnCode,
-      imeiNumbers: imeiList,
-      statusTag:
-        product.isDualImei
-          ? `${formData.stock} IMEIs in ${formData.rackLocation || 'Rack'}`
-          : product.statusTag,
     };
 
     try {
@@ -113,7 +95,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-sm">Edit Product & Pricing</h3>
-              <p className="text-slate-500 text-xs">Update stock counts, rack location, and margins</p>
+              <p className="text-slate-500 text-xs">Update product details, pricing, and stock counts</p>
             </div>
           </div>
           <button
@@ -179,25 +161,14 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Variant / Color</label>
-                <input
-                  type="text"
-                  value={formData.variant}
-                  onChange={(e) => setFormData({ ...formData, variant: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
-                />
-              </div>
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">SKU / Code</label>
-                <input
-                  type="text"
-                  value={formData.sku}
-                  onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg font-mono focus:outline-blue-600"
-                />
-              </div>
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Variant / Color</label>
+              <input
+                type="text"
+                value={formData.variant}
+                onChange={(e) => setFormData({ ...formData, variant: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -212,7 +183,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="font-bold text-slate-700">Selling MRP (₹) *</label>
+                  <label className="font-bold text-slate-700">Selling Price (₹) *</label>
                   {marginPercent && (
                     <span className="font-bold text-emerald-600">+{marginPercent}%</span>
                   )}
@@ -227,7 +198,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Available Units</label>
                 <input
@@ -246,25 +217,6 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
                   className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg font-mono focus:outline-blue-600"
                 />
               </div>
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Rack Location</label>
-                <input
-                  type="text"
-                  value={formData.rackLocation}
-                  onChange={(e) => setFormData({ ...formData, rackLocation: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Registered IMEIs (Comma separated)</label>
-              <textarea
-                rows={2}
-                value={formData.imeiNumbers}
-                onChange={(e) => setFormData({ ...formData, imeiNumbers: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg font-mono text-[11px] focus:outline-blue-600"
-              />
             </div>
           </div>
 
@@ -274,7 +226,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
               onClick={handleDelete}
               className="px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-lg font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Trash2 className="w-4 h-4" /> Delete SKU
+              <Trash2 className="w-4 h-4" /> Delete Product
             </button>
             <div className="flex items-center gap-2">
               <button

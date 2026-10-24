@@ -42,16 +42,10 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     brand: '',
     model: '',
     variant: '',
-    sku: '',
     price: '',
     costPrice: '',
-    gstRate: 18,
-    hsnCode: '85171300',
     stock: '',
     minThreshold: '4',
-    rackLocation: 'Rack A1',
-    isDualImei: true,
-    imeiNumbers: '',
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -92,45 +86,13 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       return;
     }
 
-    let hsn = '85171300';
-    let defaultRack = 'Rack A1';
-    let dualImei = false;
-
-    if (cat === 'Smartphones') {
-      hsn = '85171300';
-      defaultRack = 'Rack A1';
-      dualImei = true;
-    } else if (cat === 'Fast Chargers') {
-      hsn = '85044090';
-      defaultRack = 'Rack C1';
-    } else if (cat === 'TWS Earbuds & Neckbands' || cat === 'TWS Earbuds') {
-      hsn = '85183000';
-      defaultRack = 'Rack B1';
-    } else if (cat === 'Screen Protectors') {
-      hsn = '70071900';
-      defaultRack = 'Rack Front-Spindle';
-    } else if (cat === 'Smartwatches') {
-      hsn = '85176290';
-      defaultRack = 'Rack D1';
-    } else if (cat.toLowerCase().includes('cover') || cat.toLowerCase().includes('case')) {
-      hsn = '39269099';
-      defaultRack = 'Rack Wall-Covers';
-    } else if (cat.toLowerCase().includes('phone') || cat.toLowerCase().includes('mobile')) {
-      hsn = '85171300';
-      defaultRack = 'Rack A2';
-      dualImei = true;
-    }
-
     setFormData((prev) => ({
       ...prev,
       category: cat,
-      hsnCode: hsn,
-      rackLocation: defaultRack,
-      isDualImei: dualImei,
     }));
   };
 
-  const handleNewCategoryCreated = (newCatName: string, categoryItem?: CategoryItem) => {
+  const handleNewCategoryCreated = (newCatName: string) => {
     setCategoryOptions((prev) => {
       const exists = prev.some((c) => c.toLowerCase() === newCatName.toLowerCase());
       return exists ? prev : [...prev, newCatName];
@@ -139,9 +101,6 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     setFormData((prev) => ({
       ...prev,
       category: newCatName,
-      hsnCode: categoryItem?.hsnCode || prev.hsnCode,
-      rackLocation: categoryItem?.defaultRack || prev.rackLocation,
-      isDualImei: categoryItem?.isDualImei ?? prev.isDualImei,
     }));
 
     if (onCategoryAdded) {
@@ -157,13 +116,8 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     }
 
     setLoading(true);
-    const imeiList = formData.imeiNumbers
-      ? formData.imeiNumbers.split(',').map((s) => s.trim()).filter(Boolean)
-      : [];
 
-    const autoSku =
-      formData.sku.trim() ||
-      `${formData.brand.slice(0, 3).toUpperCase() || 'SKU'}-${formData.model.slice(0, 4).toUpperCase() || 'MOD'}-${Date.now().toString().slice(-4)}`;
+    const autoSku = `${(formData.brand || 'SKU').slice(0, 3).toUpperCase()}-${(formData.model || 'MOD').slice(0, 4).toUpperCase()}-${Date.now().toString().slice(-4)}`;
 
     const newProd: Product = {
       id: `prod-${Date.now()}`,
@@ -176,16 +130,14 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       price: Number(formData.price),
       costPrice: Number(formData.costPrice) || 0,
       margin: marginPercent ? Number(marginPercent) : undefined,
-      gstRate: Number(formData.gstRate),
-      hsnCode: formData.hsnCode,
+      gstRate: 0,
+      hsnCode: '',
       stock: Number(formData.stock) || 0,
       minThreshold: Number(formData.minThreshold) || 4,
-      rackLocation: formData.rackLocation,
-      isDualImei: formData.isDualImei,
-      statusTag: formData.isDualImei
-        ? `${formData.stock || 0} IMEIs in ${formData.rackLocation}`
-        : 'Standard Inventory',
-      imeiNumbers: imeiList,
+      rackLocation: '',
+      isDualImei: false,
+      statusTag: 'Standard Inventory',
+      imeiNumbers: [],
     };
 
     try {
@@ -206,16 +158,10 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         brand: '',
         model: '',
         variant: '',
-        sku: '',
         price: '',
         costPrice: '',
-        gstRate: 18,
-        hsnCode: '85171300',
         stock: '',
         minThreshold: '4',
-        rackLocation: 'Rack A1',
-        isDualImei: true,
-        imeiNumbers: '',
       });
     }, 600);
     setLoading(false);
@@ -230,9 +176,9 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
               <PackagePlus className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-sm">Add New Product / SKU</h3>
+              <h3 className="font-bold text-slate-900 text-sm">Add New Product</h3>
               <p className="text-slate-500 text-xs">
-                Register new handset, accessory, dual IMEI or spare with wholesale valuation
+                Register new product with pricing and inventory details
               </p>
             </div>
           </div>
@@ -336,34 +282,6 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
               />
             </div>
 
-            {/* SKU / Barcode */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Custom SKU / Barcode / EAN
-              </label>
-              <input
-                type="text"
-                value={formData.sku}
-                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                placeholder="e.g. VIV-V29-BLU-08"
-                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg font-mono focus:outline-blue-600"
-              />
-            </div>
-
-            {/* Rack Location */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Rack / Bin Location
-              </label>
-              <input
-                type="text"
-                value={formData.rackLocation}
-                onChange={(e) => setFormData({ ...formData, rackLocation: e.target.value })}
-                placeholder="e.g. Rack A1, Shelf B2"
-                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
-              />
-            </div>
-
             {/* Purchase Rate (Cost Price) */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -378,11 +296,11 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
               />
             </div>
 
-            {/* Selling MRP */}
+            {/* Selling Price */}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-bold text-slate-700">
-                  Selling MRP (₹ Incl. GST) *
+                  Selling Price (₹) *
                 </label>
                 {marginPercent && (
                   <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
@@ -398,32 +316,6 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                 placeholder="31999"
                 className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg font-mono font-bold text-slate-900 focus:outline-blue-600"
-              />
-            </div>
-
-            {/* GST Rate */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">GST Rate (%)</label>
-              <select
-                value={formData.gstRate}
-                onChange={(e) => setFormData({ ...formData, gstRate: Number(e.target.value) })}
-                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
-              >
-                <option value={18}>18% (Smartphones & Electronics)</option>
-                <option value={12}>12% (Telecom Parts & Accessories)</option>
-                <option value={28}>28% (Luxury Peripherals)</option>
-                <option value={0}>0% (Exempt)</option>
-              </select>
-            </div>
-
-            {/* HSN Code */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">HSN Code</label>
-              <input
-                type="text"
-                value={formData.hsnCode}
-                onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg font-mono focus:outline-blue-600"
               />
             </div>
 
@@ -453,34 +345,6 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 placeholder="4"
                 className="w-full px-3 py-2 text-xs bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg font-mono focus:outline-blue-600"
               />
-            </div>
-
-            {/* Serial / IMEI Section */}
-            <div className="sm:col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800">
-                  Serialized / IMEI Tracking
-                </span>
-                <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-600">
-                  <input
-                    type="checkbox"
-                    checked={formData.isDualImei}
-                    onChange={(e) => setFormData({ ...formData, isDualImei: e.target.checked })}
-                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>Dual IMEI Active</span>
-                </label>
-              </div>
-              <input
-                type="text"
-                value={formData.imeiNumbers}
-                onChange={(e) => setFormData({ ...formData, imeiNumbers: e.target.value })}
-                placeholder="Comma separated 15-digit IMEIs: 863456789012341, 863456789012342"
-                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-mono focus:outline-blue-600"
-              />
-              <p className="text-[11px] text-slate-500">
-                Tip: Handsets with registered IMEIs allow 1-click warranty billing and barcode scans.
-              </p>
             </div>
           </div>
 

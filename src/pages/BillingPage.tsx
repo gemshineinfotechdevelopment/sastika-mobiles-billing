@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Scan,
+  Search,
   Plus,
   Trash2,
   User,
@@ -259,7 +259,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const [billSearchQuery, setBillSearchQuery] = useState('');
   const [showBillSuggestions, setShowBillSuggestions] = useState(false);
 
-  // Hotkey listener: F2 (New Bill), F3 (Scan), Alt+C (Customer)
+  // Hotkey listener: F2 (New Bill), F3 (Search), Alt+C (Customer)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F2') {
@@ -380,7 +380,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       return;
     }
 
-    alert(`No matching product or IMEI found for: "${searchQuery}"`);
+    alert(`No matching product found for: "${searchQuery}"`);
   };
 
   // Scan or search submission on New Bill page
@@ -411,7 +411,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       return;
     }
 
-    alert(`No matching product or IMEI found for: "${billSearchQuery}"`);
+    alert(`No matching product found for: "${billSearchQuery}"`);
   };
 
   // Filter products for New Bill search autocomplete
@@ -745,12 +745,12 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           )}
         </div>
 
-        {/* Section 2: Quick Search & Scan Product for Bill */}
+        {/* Section 2: Quick Search Product for Bill */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 space-y-3">
           <form onSubmit={handleBillScanSubmit} className="relative">
             <div className="flex items-center gap-2">
               <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl shrink-0">
-                <Scan className="w-5 h-5" />
+                <Search className="w-5 h-5" />
               </div>
               <div className="relative flex-1">
                 <input
@@ -762,8 +762,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                     setShowBillSuggestions(true);
                   }}
                   onFocus={() => setShowBillSuggestions(true)}
-                  placeholder="Scan barcode, enter 15-digit IMEI, or search product name..."
-                  className="w-full px-4 py-2.5 bg-slate-50 hover:bg-slate-100/70 focus:bg-white text-xs sm:text-sm text-slate-800 placeholder-slate-400 rounded-xl border border-slate-200/80 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-mono"
+                  placeholder="Search product name, brand, or model..."
+                  className="w-full px-4 py-2.5 bg-slate-50 hover:bg-slate-100/70 focus:bg-white text-xs sm:text-sm text-slate-800 placeholder-slate-400 rounded-xl border border-slate-200/80 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-medium"
                 />
                 {billSearchQuery && (
                   <button
@@ -859,7 +859,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                         <Receipt className="w-8 h-8 text-slate-300 mx-auto" />
                         <p className="font-semibold text-slate-600 text-sm">Your invoice is empty</p>
                         <p className="text-xs text-slate-400">
-                          Scan barcode/IMEI above or browse catalog to add items.
+                          Search products above or browse catalog to add items.
                         </p>
                         <button
                           type="button"
@@ -962,7 +962,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                 <Receipt className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                 <p className="font-semibold text-slate-700 text-xs">Your invoice is empty</p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Scan barcode/IMEI or add items from catalog
+                  Search products or add items from catalog
                 </p>
                 <button
                   type="button"
@@ -1280,19 +1280,19 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         </div>
       </div>
 
-      {/* 2. Top Barcode / IMEI Scanner & Search */}
+      {/* 2. Top Product Search */}
       <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200/90 shadow-2xs">
         <form onSubmit={handleCatalogScanSubmit} className="flex items-center gap-2">
           <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl shrink-0">
-            <Scan className="w-5 h-5" />
+            <Search className="w-5 h-5" />
           </div>
           <input
             ref={scanInputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Scan barcode, enter 15-digit IMEI, or search product name..."
-            className="w-full px-4 py-2 bg-slate-50 hover:bg-slate-100/70 focus:bg-white text-xs sm:text-sm text-slate-800 placeholder-slate-400 rounded-xl border border-slate-200/80 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-mono"
+            placeholder="Search products by name, brand, or model..."
+            className="w-full px-4 py-2 bg-slate-50 hover:bg-slate-100/70 focus:bg-white text-xs sm:text-sm text-slate-800 placeholder-slate-400 rounded-xl border border-slate-200/80 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-medium"
           />
           <button
             type="submit"

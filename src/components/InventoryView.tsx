@@ -161,19 +161,14 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
   const handleQuickStockUpdated = (
     productId: string,
-    addedQty: number,
-    newRack?: string,
-    newImeis?: string[]
+    addedQty: number
   ) => {
     setProductList((prev) =>
       prev.map((p) => {
         if (p.id === productId) {
-          const updatedImeis = newImeis ? [...(p.imeiNumbers || []), ...newImeis] : p.imeiNumbers;
           return {
             ...p,
             stock: (p.stock || 0) + addedQty,
-            rackLocation: newRack || p.rackLocation,
-            imeiNumbers: updatedImeis,
           };
         }
         return p;
@@ -247,7 +242,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 
                 setCurrentPage(1);
               }}
-              placeholder="Search product name, brand, model, SKU, or IMEI..."
+              placeholder="Search product name, brand, or model..."
               className="w-full pl-9 pr-8 py-1.5 text-xs text-slate-800 placeholder-slate-400 bg-transparent focus:outline-none"
             />
             {searchQuery && (
@@ -328,7 +323,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                         </span>
                         <span className="text-[11px] text-slate-400 block mt-0.5 font-medium">
                           {product.brand} {product.model} {product.variant ? `• ${product.variant}` : ''}
-                          {product.sku ? ` • SKU: ${product.sku}` : ''}
                         </span>
                       </td>
                       <td className="py-3 px-4">
