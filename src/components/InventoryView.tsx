@@ -207,6 +207,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
+
+                
                 setCurrentPage(1);
               }}
               placeholder="Search product name, brand, model, SKU, or IMEI..."
