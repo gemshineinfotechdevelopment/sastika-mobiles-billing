@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, PackagePlus, Check, Sparkles, Plus } from 'lucide-react';
 import { api } from '../../services/api';
-import type { Product, CategoryItem } from '../../types';
+import type { Product } from '../../types';
 import { AddCategoryModal } from './AddCategoryModal';
 
 const DEFAULT_CATEGORIES = [
