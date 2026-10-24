@@ -23,6 +23,18 @@ export interface Product {
   series?: string;
 }
 
+export interface CategoryItem {
+  _id?: string;
+  id?: string;
+  name: string;
+  description?: string;
+  hsnCode?: string;
+  defaultRack?: string;
+  isDualImei?: boolean;
+  itemCount?: number;
+  createdAt?: string;
+}
+
 export interface Customer {
   id?: string;
   name: string;

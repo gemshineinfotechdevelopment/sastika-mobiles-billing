@@ -8,6 +8,7 @@ import {
   Printer,
   AlertTriangle,
   X,
+  FolderPlus,
 } from 'lucide-react';
 import type { Product } from '../types';
 import { api } from '../services/api';
@@ -16,6 +17,7 @@ import { EditProductModal } from './modals/EditProductModal';
 import { QuickStockInModal } from './modals/QuickStockInModal';
 import { ProductDetailsModal } from './modals/ProductDetailsModal';
 import { PrintBarcodeModal } from './modals/PrintBarcodeModal';
+import { AddCategoryModal } from './modals/AddCategoryModal';
 
 interface InventoryViewProps {
   products: Product[];
@@ -56,6 +58,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [extraCategories, setExtraCategories] = useState<string[]>([]);
   const [showQuickStockModal, setShowQuickStockModal] = useState(false);
   const [inspectProduct, setInspectProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -63,14 +67,37 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch live categories from database
+  const loadCategories = () => {
+    api.getCategories()
+      .then((res) => {
+        if (res && res.categories) {
+          const names = res.categories.map((c: any) => (typeof c === 'string' ? c : c.name));
+          setExtraCategories(names);
+        }
+      })
+      .catch((err) => console.warn('Could not load categories:', err));
+  };
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
   // Extract distinct categories
   const categories = useMemo(() => {
     const set = new Set<string>();
+    extraCategories.forEach((c) => {
+      if (c && c.trim()) set.add(c.trim());
+    });
     productList.forEach((p) => {
-      if (p.category) set.add(p.category);
+      if (p.category && p.category.trim()) set.add(p.category.trim());
     });
     return ['All', ...Array.from(set)];
-  }, [productList]);
+  }, [productList, extraCategories]);
+
+  const allCategoryNames = useMemo(() => {
+    return categories.filter((c) => c !== 'All');
+  }, [categories]);
 
   // Filter products
   const filteredProducts = useMemo(() => {
@@ -184,6 +211,15 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           >
             <Package className="w-4 h-4 text-slate-500" />
             <span>Quick Stock In</span>
+          </button>
+
+          <button
+            onClick={() => setShowAddCategoryModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-102 active:scale-98"
+            title="Create a new product category"
+          >
+            <FolderPlus className="w-4 h-4 text-indigo-600" />
+            <span>+ New Category</span>
           </button>
 
           <button
@@ -503,6 +539,20 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onProductAdded={handleProductAddedSuccess}
+        categories={allCategoryNames}
+        onCategoryAdded={(newCat) => {
+          setExtraCategories((prev) => (prev.includes(newCat) ? prev : [...prev, newCat]));
+          setSelectedCategory(newCat);
+        }}
+      />
+
+      <AddCategoryModal
+        isOpen={showAddCategoryModal}
+        onClose={() => setShowAddCategoryModal(false)}
+        onCategoryAdded={(newCat) => {
+          setExtraCategories((prev) => (prev.includes(newCat) ? prev : [...prev, newCat]));
+          setSelectedCategory(newCat);
+        }}
       />
 
       <EditProductModal
@@ -511,6 +561,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         onClose={() => setEditingProduct(null)}
         onProductUpdated={handleProductUpdated}
         onProductDeleted={handleProductDeleted}
+        categories={allCategoryNames}
       />
 
       <QuickStockInModal
