@@ -52,7 +52,7 @@ const customerSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
-      required: [true, 'Customer phone number is required'],
+      default: '',
       trim: true,
     },
     email: {

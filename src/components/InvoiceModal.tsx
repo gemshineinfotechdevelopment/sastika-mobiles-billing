@@ -214,8 +214,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                   <span className="uppercase">{bill.paymentMode || 'Cash'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>CUST: {bill.customer.name}</span>
-                  <span>{bill.customer.phone || 'Walk-in'}</span>
+                  <span>CUST: {bill.customer?.name || 'Customer'}</span>
+                  <span>{bill.customer?.phone || ''}</span>
                 </div>
               </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   Search,
   Download,
@@ -7,6 +7,7 @@ import {
   Ban,
   Calendar,
   X,
+  RefreshCw,
 } from 'lucide-react';
 import type { Bill } from '../types';
 import { api } from '../services/api';
@@ -25,21 +26,40 @@ export const SalesPage: React.FC<SalesPageProps> = ({
   onNewBill,
 }) => {
   const [billsList, setBillsList] = useState<Bill[]>(propBills);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    setBillsList(propBills || []);
+    if (propBills && propBills.length > 0) {
+      setBillsList((prev) => {
+        const map = new Map<string, Bill>();
+        propBills.forEach((b) => map.set(b.id || b.invoiceNumber, b));
+        prev.forEach((b) => {
+          const key = b.id || b.invoiceNumber;
+          if (!map.has(key)) map.set(key, b);
+        });
+        return Array.from(map.values());
+      });
+    }
   }, [propBills]);
 
-  // Fetch directly from live MongoDB database on mount
-  useEffect(() => {
-    api.getBills()
-      .then((res) => {
-        if (res && res.bills) {
-          setBillsList(res.bills);
-        }
-      })
-      .catch((err) => console.warn('Could not load live bills from database:', err));
+  // Fetch directly from live MongoDB database
+  const fetchLiveBills = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const res = await api.getBills();
+      if (res && res.bills) {
+        setBillsList(res.bills);
+      }
+    } catch (err) {
+      console.warn('Could not load live bills from database:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchLiveBills();
+  }, [fetchLiveBills]);
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,16 +73,33 @@ export const SalesPage: React.FC<SalesPageProps> = ({
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Filter bills
+  // Filter bills - Always sorted with newest invoices first
   const filteredBills = useMemo(() => {
-    return billsList.filter((b) => {
+    const sorted = [...billsList].sort((a, b) => {
+      const timeA = a.createdAt
+        ? new Date(a.createdAt).getTime()
+        : a.date
+        ? new Date(a.date).getTime()
+        : 0;
+      const timeB = b.createdAt
+        ? new Date(b.createdAt).getTime()
+        : b.date
+        ? new Date(b.date).getTime()
+        : 0;
+      const safeA = isNaN(timeA) ? 0 : timeA;
+      const safeB = isNaN(timeB) ? 0 : timeB;
+      if (safeA !== safeB) return safeB - safeA;
+      return (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true });
+    });
+
+    return sorted.filter((b) => {
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !q ||
-        b.invoiceNumber.toLowerCase().includes(q) ||
-        b.customer.name.toLowerCase().includes(q) ||
-        (b.customer.phone && b.customer.phone.includes(q)) ||
-        b.items.some((item) => item.name.toLowerCase().includes(q));
+        (b.invoiceNumber && b.invoiceNumber.toLowerCase().includes(q)) ||
+        (b.customer?.name && b.customer.name.toLowerCase().includes(q)) ||
+        (b.customer?.phone && b.customer.phone.includes(q)) ||
+        (b.items && b.items.some((item) => item?.name && item.name.toLowerCase().includes(q)));
 
       let matchesStatus = true;
       if (selectedStatus === 'Paid') {
@@ -126,7 +163,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
     const rows = filteredBills.map((b) => [
       `"${b.invoiceNumber || ''}"`,
       `"${b.date ? new Date(b.date).toLocaleDateString('en-IN') : ''}"`,
-      `"${b.customer?.name || 'Walk-in'}"`,
+      `"${b.customer?.name || 'Customer'}"`,
       `"${b.customer?.phone || ''}"`,
       `"${(b.items || []).map((i) => i.name).join('; ')}"`,
       b.grandTotal ?? 0,
@@ -157,6 +194,16 @@ export const SalesPage: React.FC<SalesPageProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => fetchLiveBills()}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+            title="Refresh bills directly from database"
+          >
+            <RefreshCw className={`w-4 h-4 text-blue-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
+
           <button
             onClick={() => setShowZReportModal(true)}
             className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs"
@@ -270,9 +317,9 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                       </td>
                       <td className="py-3 px-4">
                         <span className="font-semibold text-slate-900 block">
-                          {bill.customer?.name || 'Walk-in Customer'}
+                          {bill.customer?.name || 'Customer'}
                         </span>
-                        {bill.customer?.phone && bill.customer.phone !== 'Counter Sale' && (
+                        {bill.customer?.phone && (
                           <span className="text-[11px] text-slate-400 font-mono">
                             {bill.customer.phone}
                           </span>
@@ -375,9 +422,9 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                         </span>
                       </div>
                       <h4 className="font-bold text-slate-900 text-xs leading-snug">
-                        {bill.customer?.name || 'Walk-in Customer'}
+                        {bill.customer?.name || 'Customer'}
                       </h4>
-                      {bill.customer?.phone && bill.customer.phone !== 'Counter Sale' && (
+                      {bill.customer?.phone && (
                         <p className="text-[10px] text-slate-400 font-mono mt-0.5">
                           {bill.customer.phone}
                         </p>

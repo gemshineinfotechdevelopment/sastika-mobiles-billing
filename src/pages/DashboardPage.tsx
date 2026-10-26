@@ -223,8 +223,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       {bill.invoiceNumber}
                     </td>
                     <td className="py-3 px-4 font-semibold text-slate-900">
-                      {bill.customer?.name || 'Walk-in Customer'}
-                      {bill.customer?.phone && bill.customer.phone !== 'Counter Sale' && (
+                      {bill.customer?.name || 'Customer'}
+                      {bill.customer?.phone && (
                         <span className="block text-[11px] text-slate-400 font-mono font-normal">
                           {bill.customer.phone}
                         </span>
@@ -280,7 +280,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     </span>
                   </div>
                   <p className="font-bold text-slate-900 text-xs mt-1 truncate">
-                    {bill.customer?.name || 'Walk-in Customer'}
+                    {bill.customer?.name || 'Customer'}
                   </p>
                   <p className="text-[10px] text-slate-400 mt-0.5">
                     {bill.date ? new Date(bill.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Today'}

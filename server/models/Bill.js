@@ -73,7 +73,7 @@ const billSchema = new mongoose.Schema(
     customer: {
       id: String,
       name: { type: String, required: true },
-      phone: { type: String, required: true },
+      phone: { type: String, default: 'Cash Counter' },
       email: { type: String, default: '' },
       address: { type: String, default: '' },
       gstin: { type: String, default: '' },

@@ -107,6 +107,8 @@ export interface Bill {
   voidReason?: string;
   warningNote?: string;
   stockRestoredText?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ShopInfo {

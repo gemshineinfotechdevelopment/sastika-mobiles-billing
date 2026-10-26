@@ -156,7 +156,7 @@ export const api = {
     paidAmount?: number;
     balanceDue?: number;
     notes?: string;
-  }): Promise<{ success: boolean; bill: Bill }> {
+  }): Promise<{ success: boolean; bill: Bill; message?: string }> {
     const res = await fetch(`${API_BASE}/bills`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

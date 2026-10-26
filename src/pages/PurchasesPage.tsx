@@ -9,16 +9,10 @@ import {
   Phone,
   Trash2,
   CheckCircle2,
-  AlertCircle,
   Truck,
-  RotateCcw,
   Save,
   ArrowLeft,
-  Smartphone,
-  Tag,
-  Hash,
   MapPin,
-  ShieldCheck,
   RefreshCw,
 } from 'lucide-react';
 import type { PurchaseBill, Supplier, Product } from '../types';
@@ -42,7 +36,7 @@ export const PurchasesPage: React.FC = () => {
   const [bills, setBills] = useState<PurchaseBill[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [_loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusTab, setStatusTab] = useState<'all' | 'due' | 'paid'>('all');
   const [currentPage, setCurrentPage] = useState(1);

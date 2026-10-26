@@ -148,10 +148,10 @@ router.post('/', async (req, res) => {
       counter = 'Terminal 01',
     } = req.body;
 
-    if (!customer || !customer.name || !items || !items.length) {
+    if (!items || !items.length) {
       return res.status(400).json({
         success: false,
-        message: 'Customer name and at least one item are required',
+        message: 'At least one item is required in the bill',
       });
     }
 
@@ -231,13 +231,13 @@ router.post('/', async (req, res) => {
       date: new Date().toISOString().slice(0, 10),
       time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
       customer: {
-        id: customer.id || '',
-        name: customer.name,
-        phone: customer.phone,
-        email: customer.email || '',
-        address: customer.address || '',
-        gstin: customer.gstin || '',
-        tier: customer.tier || 'REGULAR',
+        id: customer?.id || '',
+        name: (customer?.name || '').trim() || 'Customer',
+        phone: (customer?.phone || '').trim(),
+        email: customer?.email || '',
+        address: customer?.address || '',
+        gstin: customer?.gstin || '',
+        tier: customer?.tier || 'REGULAR',
       },
       items: processedItems,
       subTotal: Number(subTotal.toFixed(2)),
@@ -250,7 +250,7 @@ router.post('/', async (req, res) => {
       dueDate: dueDate || '',
       paymentMode,
       tenderMode: tenderMode || paymentMode,
-      customerType,
+      customerType: customerType || 'CUSTOMER',
       status: billStatus,
       notes,
       counter,
@@ -260,18 +260,49 @@ router.post('/', async (req, res) => {
 
     const savedBill = await newBill.save();
 
-    // Auto update customer record if phone exists
-    if (customer.phone) {
+    // Auto maintain customer records: Every billed customer is created or updated in DB
+    if (customer && customer.name && customer.name.trim()) {
       try {
-        let custRecord = await Customer.findOne({ phone: customer.phone });
+        const custName = customer.name.trim();
+        const custPhone = (customer.phone || '').trim();
+
+        let custRecord = null;
+        if (custPhone) {
+          custRecord = await Customer.findOne({ phone: custPhone });
+        }
+        if (!custRecord && customer.id) {
+          const isObjectId = /^[0-9a-fA-F]{24}$/.test(customer.id);
+          custRecord = await Customer.findOne({
+            $or: [{ id: customer.id }, ...(isObjectId ? [{ _id: customer.id }] : [])],
+          });
+        }
+        if (!custRecord && custName) {
+          custRecord = await Customer.findOne({ name: new RegExp(`^${custName}$`, 'i') });
+        }
+
         if (!custRecord) {
           custRecord = new Customer({
-            name: customer.name,
-            phone: customer.phone,
+            name: custName,
+            phone: custPhone,
             address: customer.address || '',
             email: customer.email || '',
+            gstin: customer.gstin || '',
             tier: customer.tier || 'REGULAR',
+            lifetimeSales: 0,
+            billsCount: 0,
+            khataBalance: 0,
+            khataStatus: 'settled',
+            dueText: 'Settled',
+            ledger: [],
           });
+        } else {
+          custRecord.name = custName;
+          if (custPhone && (!custRecord.phone || custRecord.phone === 'Cash Counter' || custRecord.phone === 'Counter Sale')) {
+            custRecord.phone = custPhone;
+          }
+          if (customer.address && !custRecord.address) custRecord.address = customer.address;
+          if (customer.email && !custRecord.email) custRecord.email = customer.email;
+          if (customer.gstin && !custRecord.gstin) custRecord.gstin = customer.gstin;
         }
 
         custRecord.lifetimeSales = (custRecord.lifetimeSales || 0) + grandTotal;
@@ -296,7 +327,7 @@ router.post('/', async (req, res) => {
 
         await custRecord.save();
       } catch (custErr) {
-        console.warn('Customer khata sync notice:', custErr.message);
+        console.warn('Customer auto-maintenance notice:', custErr.message);
       }
     }
 
