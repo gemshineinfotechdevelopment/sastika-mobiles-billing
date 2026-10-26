@@ -177,3 +177,67 @@ export interface PurchaseBill {
   taxAuditStatus?: string;
   items?: PurchaseBillItem[];
 }
+
+export interface ZReportProductItem {
+  productId: string;
+  name: string;
+  model?: string;
+  category?: string;
+  quantity: number;
+  unitPrice: number;
+  grossAmount: number;
+  discountAmount: number;
+  netWorthAmount: number;
+  unitCost: number;
+  totalCost: number;
+  profit: number;
+}
+
+export interface ZReportBillSummary {
+  id: string;
+  invoiceNumber: string;
+  time: string;
+  customerName: string;
+  customerPhone?: string;
+  itemsCount: number;
+  itemsSummary: string;
+  paymentMode: string;
+  grandTotal: number;
+  paidAmount: number;
+  balanceDue: number;
+  status: string;
+}
+
+export interface ZReportData {
+  reportDate: string;
+  terminal: string;
+  totalInvoices: number;
+  firstInvoice?: string;
+  lastInvoice?: string;
+  grossSales: number;
+  totalCost: number;
+  totalProfit: number;
+  profitMargin: number;
+  taxableTurnover: number;
+  cgstTotal: number;
+  sgstTotal: number;
+  totalTax: number;
+  totalItemsCount: number;
+  discountsTotal: number;
+  netSales: number;
+  breakdown: {
+    cashSales: number;
+    upiSales: number;
+    cardSales: number;
+    khataCreditSales: number;
+    netCollected: number;
+  };
+  voids: {
+    count: number;
+    totalAmount: number;
+  };
+  productsSold: ZReportProductItem[];
+  billsList: ZReportBillSummary[];
+  generatedAt: string;
+}
+

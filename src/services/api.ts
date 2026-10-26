@@ -7,6 +7,7 @@ import type {
   Supplier,
   PurchaseBill,
   CategoryItem,
+  ZReportData,
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -182,7 +183,34 @@ export const api = {
     return res.json();
   },
 
-  async getZReport(date?: string): Promise<Record<string, unknown>> {
+  async updateBill(
+    id: string,
+    updateData: Partial<Bill>
+  ): Promise<{ success: boolean; message: string; bill: Bill }> {
+    const res = await fetch(`${API_BASE}/bills/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updateData),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || 'Failed to update invoice');
+    }
+    return res.json();
+  },
+
+  async deleteBill(id: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/bills/${id}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || 'Failed to delete invoice');
+    }
+    return res.json();
+  },
+
+  async getZReport(date?: string): Promise<{ success: boolean } & ZReportData> {
     const params = new URLSearchParams();
     if (date) params.append('date', date);
     const res = await fetch(`${API_BASE}/bills/reports/z-report?${params.toString()}`);

@@ -59,50 +59,200 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET Daily Z-Report End of Day summary
+// GET Daily Z-Report End of Day fiscal closing summary
 router.get('/reports/z-report', async (req, res) => {
   try {
     const today = req.query.date || new Date().toISOString().slice(0, 10);
-    const todayBills = await Bill.find({ date: today, isCancelled: { $ne: true } });
+    // Find all bills for the selected date strictly from MongoDB
+    const allBills = await Bill.find({ date: today }).sort({ createdAt: 1, invoiceNumber: 1 });
+    const allProducts = await Product.find({});
 
-    const totalBills = todayBills.length;
+    const productMap = new Map();
+    allProducts.forEach((p) => {
+      if (p.id) productMap.set(p.id, p);
+      if (p._id) productMap.set(p._id.toString(), p);
+      if (p.name) productMap.set(p.name.toLowerCase().trim(), p);
+    });
+
+    const activeBills = allBills.filter((b) => !b.isCancelled && b.status !== 'CANCELLED');
+    const voidBills = allBills.filter((b) => b.isCancelled || b.status === 'CANCELLED');
+
     let grossSales = 0;
+    let taxableTurnover = 0;
+    let cgstTotal = 0;
+    let sgstTotal = 0;
     let totalTax = 0;
+    let totalItemsCount = 0;
+    let discountsTotal = 0;
+    let totalCost = 0;
+
     let cashSales = 0;
     let upiSales = 0;
     let cardSales = 0;
     let khataCreditSales = 0;
+    let netCollected = 0;
 
-    todayBills.forEach((b) => {
-      grossSales += b.grandTotal || 0;
-      totalTax += b.totalTax || 0;
+    const productsSoldMap = new Map();
 
-      const mode = (b.paymentMode || b.tenderMode || '').toLowerCase();
-      if (mode.includes('upi') || mode.includes('gpay') || mode.includes('phonepe')) {
-        upiSales += b.grandTotal;
-      } else if (mode.includes('card')) {
-        cardSales += b.grandTotal;
-      } else if (mode.includes('khata') || mode.includes('credit')) {
-        khataCreditSales += b.balanceDue || b.grandTotal;
+    activeBills.forEach((b) => {
+      const gTotal = Number(b.grandTotal) || 0;
+      const sTotal = Number(b.subTotal) || 0;
+      const cgst = Number(b.cgstTotal) || 0;
+      const sgst = Number(b.sgstTotal) || 0;
+      const tax = Number(b.totalTax) || (cgst + sgst);
+      const paid = Number(b.paidAmount !== undefined ? b.paidAmount : gTotal);
+      const due = Number(b.balanceDue !== undefined ? b.balanceDue : Math.max(0, gTotal - paid));
+
+      grossSales += gTotal;
+      taxableTurnover += sTotal;
+      cgstTotal += cgst;
+      sgstTotal += sgst;
+      totalTax += tax;
+
+      // Extract bill level discount
+      let billDiscount = 0;
+      if (b.notes && b.notes.includes('-₹')) {
+        const discMatch = b.notes.match(/-₹(\d+(\.\d+)?)/);
+        if (discMatch) {
+          billDiscount = parseFloat(discMatch[1]);
+          discountsTotal += billDiscount;
+        }
+      }
+
+      // Sum of item totals for proportional discount allocation
+      const billItemsGrossSum = (b.items || []).reduce((acc, it) => acc + (Number(it.total) || 0), 0);
+
+      // Aggregate product-level sales & calculate profit
+      if (Array.isArray(b.items)) {
+        b.items.forEach((item) => {
+          const qty = Number(item.quantity) || 1;
+          const itemTotal = Number(item.total) || 0;
+          const unitPrice = Number(item.unitPrice) || (qty > 0 ? itemTotal / qty : 0);
+
+          totalItemsCount += qty;
+
+          // Lookup product cost price
+          const prod =
+            (item.productId && productMap.get(item.productId)) ||
+            (item.name && productMap.get(item.name.toLowerCase().trim())) ||
+            null;
+
+          const unitCost = prod && typeof prod.costPrice === 'number' ? prod.costPrice : 0;
+          const itemTotalCost = unitCost * qty;
+          totalCost += itemTotalCost;
+
+          // Proportionate discount for this item
+          const itemDiscount =
+            billItemsGrossSum > 0 && billDiscount > 0
+              ? (itemTotal / billItemsGrossSum) * billDiscount
+              : 0;
+
+          // Net Worth Amount after discount
+          const netWorth = Math.max(0, itemTotal - itemDiscount);
+          const itemProfit = netWorth - itemTotalCost;
+
+          const prodKey = item.productId || item.name;
+          if (!productsSoldMap.has(prodKey)) {
+            productsSoldMap.set(prodKey, {
+              productId: item.productId || '',
+              name: item.name,
+              model: item.model || prod?.model || '',
+              category: prod?.category || 'General',
+              quantity: qty,
+              unitPrice: Number(unitPrice.toFixed(2)),
+              grossAmount: Number(itemTotal.toFixed(2)),
+              discountAmount: Number(itemDiscount.toFixed(2)),
+              netWorthAmount: Number(netWorth.toFixed(2)),
+              unitCost: Number(unitCost.toFixed(2)),
+              totalCost: Number(itemTotalCost.toFixed(2)),
+              profit: Number(itemProfit.toFixed(2)),
+            });
+          } else {
+            const existing = productsSoldMap.get(prodKey);
+            existing.quantity += qty;
+            existing.grossAmount = Number((existing.grossAmount + itemTotal).toFixed(2));
+            existing.discountAmount = Number((existing.discountAmount + itemDiscount).toFixed(2));
+            existing.netWorthAmount = Number((existing.netWorthAmount + netWorth).toFixed(2));
+            existing.totalCost = Number((existing.totalCost + itemTotalCost).toFixed(2));
+            existing.profit = Number((existing.profit + itemProfit).toFixed(2));
+          }
+        });
+      }
+
+      khataCreditSales += due;
+      netCollected += paid;
+
+      const mode = (b.paymentMode || b.tenderMode || 'Cash').toLowerCase();
+      if (mode.includes('upi') || mode.includes('gpay') || mode.includes('phonepe') || mode.includes('qr')) {
+        upiSales += paid;
+      } else if (mode.includes('card') || mode.includes('pos')) {
+        cardSales += paid;
+      } else if (mode.includes('credit') || mode.includes('khata')) {
+        if (paid > 0) cashSales += paid;
       } else {
-        cashSales += b.grandTotal;
+        cashSales += paid;
       }
     });
+
+    let voidTotal = 0;
+    voidBills.forEach((b) => {
+      voidTotal += Number(b.grandTotal) || 0;
+    });
+
+    const productsSold = Array.from(productsSoldMap.values()).sort(
+      (a, b) => b.netWorthAmount - a.netWorthAmount
+    );
+
+    const totalProfit = Number((grossSales - totalCost).toFixed(2));
+    const profitMargin = grossSales > 0 ? Number(((totalProfit / grossSales) * 100).toFixed(1)) : 0;
+
+    // Detailed day's bills & payments register
+    const billsList = activeBills.map((b) => ({
+      id: b.id,
+      invoiceNumber: b.invoiceNumber,
+      time: b.time || '',
+      customerName: b.customer?.name || 'Customer',
+      customerPhone: b.customer?.phone || '',
+      itemsCount: (b.items || []).length,
+      itemsSummary: b.itemSummary || (b.items || []).map((i) => i.name).join(', '),
+      paymentMode: b.paymentMode || b.tenderMode || 'Cash',
+      grandTotal: Number((b.grandTotal || 0).toFixed(2)),
+      paidAmount: Number((b.paidAmount !== undefined ? b.paidAmount : b.grandTotal).toFixed(2)),
+      balanceDue: Number((b.balanceDue || 0).toFixed(2)),
+      status: b.status || 'PAID',
+    }));
 
     res.json({
       success: true,
       reportDate: today,
       terminal: 'Terminal 01',
-      totalInvoices: totalBills,
-      grossSales,
-      totalTax,
+      totalInvoices: activeBills.length,
+      firstInvoice: activeBills.length > 0 ? activeBills[0].invoiceNumber : 'None',
+      lastInvoice: activeBills.length > 0 ? activeBills[activeBills.length - 1].invoiceNumber : 'None',
+      grossSales: Number(grossSales.toFixed(2)),
+      totalCost: Number(totalCost.toFixed(2)),
+      totalProfit,
+      profitMargin,
+      taxableTurnover: Number(taxableTurnover.toFixed(2)),
+      cgstTotal: Number(cgstTotal.toFixed(2)),
+      sgstTotal: Number(sgstTotal.toFixed(2)),
+      totalTax: Number(totalTax.toFixed(2)),
+      totalItemsCount,
+      discountsTotal: Number(discountsTotal.toFixed(2)),
+      netSales: Number(taxableTurnover.toFixed(2)),
       breakdown: {
-        cashSales,
-        upiSales,
-        cardSales,
-        khataCreditSales,
+        cashSales: Number(cashSales.toFixed(2)),
+        upiSales: Number(upiSales.toFixed(2)),
+        cardSales: Number(cardSales.toFixed(2)),
+        khataCreditSales: Number(khataCreditSales.toFixed(2)),
+        netCollected: Number(netCollected.toFixed(2)),
       },
-      netSales: grossSales - totalTax,
+      voids: {
+        count: voidBills.length,
+        totalAmount: Number(voidTotal.toFixed(2)),
+      },
+      productsSold,
+      billsList,
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
@@ -419,4 +569,154 @@ router.post('/:id/void', async (req, res) => {
   }
 });
 
+// PUT Update bill (Edit customer, payment mode, amounts, notes, items)
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const filter = {
+      $or: [{ id }, { invoiceNumber: id }],
+    };
+    if (id.match(/^[0-9a-fA-F]{24}$/)) {
+      filter.$or.push({ _id: id });
+    }
+
+    const bill = await Bill.findOne(filter);
+    if (!bill) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    const {
+      customer,
+      paymentMode,
+      tenderMode,
+      paidAmount,
+      balanceDue,
+      notes,
+      items,
+      subTotal,
+      cgstTotal,
+      sgstTotal,
+      totalTax,
+      grandTotal,
+      status,
+    } = req.body;
+
+    if (customer) {
+      bill.customer = {
+        name: customer.name || bill.customer?.name || 'Customer',
+        phone: customer.phone || bill.customer?.phone || '',
+        address: customer.address !== undefined ? customer.address : bill.customer?.address || '',
+        gstin: customer.gstin !== undefined ? customer.gstin : bill.customer?.gstin || '',
+      };
+    }
+
+    if (paymentMode !== undefined) bill.paymentMode = paymentMode;
+    if (tenderMode !== undefined) bill.tenderMode = tenderMode;
+    if (paidAmount !== undefined) bill.paidAmount = Number(paidAmount);
+    if (balanceDue !== undefined) {
+      bill.balanceDue = Number(balanceDue);
+      if (bill.status !== 'CANCELLED') {
+        bill.status = bill.balanceDue > 0 ? 'PARTIAL' : 'PAID';
+      }
+    }
+    if (status !== undefined) bill.status = status;
+    if (notes !== undefined) bill.notes = notes;
+
+    if (Array.isArray(items) && items.length > 0) {
+      bill.items = items;
+      bill.itemSummary = items.map((i) => i.name).join(', ');
+    }
+    if (subTotal !== undefined) bill.subTotal = Number(subTotal);
+    if (cgstTotal !== undefined) bill.cgstTotal = Number(cgstTotal);
+    if (sgstTotal !== undefined) bill.sgstTotal = Number(sgstTotal);
+    if (totalTax !== undefined) bill.totalTax = Number(totalTax);
+    if (grandTotal !== undefined) bill.grandTotal = Number(grandTotal);
+
+    await bill.save();
+
+    res.json({
+      success: true,
+      message: `Invoice ${bill.invoiceNumber} updated successfully`,
+      bill,
+    });
+  } catch (error) {
+    console.error('Error updating bill:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// DELETE bill permanently (Restores stock if active, adjusts customer ledger)
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const filter = {
+      $or: [{ id }, { invoiceNumber: id }],
+    };
+    if (id.match(/^[0-9a-fA-F]{24}$/)) {
+      filter.$or.push({ _id: id });
+    }
+
+    const bill = await Bill.findOne(filter);
+    if (!bill) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    // 1. If bill was active (not cancelled), restore product stock
+    if (!bill.isCancelled && bill.status !== 'CANCELLED' && Array.isArray(bill.items)) {
+      for (const item of bill.items) {
+        const prodFilter = item.productId
+          ? { $or: [{ id: item.productId }, { _id: item.productId.match(/^[0-9a-fA-F]{24}$/) ? item.productId : null }] }
+          : { name: item.name };
+
+        const product = await Product.findOne(prodFilter);
+        if (product) {
+          product.stock += item.quantity || 1;
+          if (item.imei && !product.imeiNumbers.includes(item.imei)) {
+            product.imeiNumbers.push(item.imei);
+          }
+          await product.save();
+        }
+      }
+    }
+
+    // 2. Adjust customer lifetime sales & khata balance if bill had balance due
+    if (bill.customer?.phone) {
+      const cust = await Customer.findOne({ phone: bill.customer.phone });
+      if (cust) {
+        if (!bill.isCancelled && bill.status !== 'CANCELLED') {
+          cust.lifetimeSales = Math.max(0, (cust.lifetimeSales || 0) - (bill.grandTotal || 0));
+          cust.billsCount = Math.max(0, (cust.billsCount || 1) - 1);
+        }
+        if (bill.balanceDue > 0) {
+          cust.khataBalance = Math.max(0, (cust.khataBalance || 0) - bill.balanceDue);
+          if (cust.khataBalance === 0) cust.khataStatus = 'settled';
+
+          cust.ledger.push({
+            date: new Date().toISOString().slice(0, 10),
+            billNumber: bill.invoiceNumber,
+            type: 'DELETE',
+            amount: bill.balanceDue,
+            paymentMode: 'Bill Deleted',
+            notes: `Deleted invoice record ${bill.invoiceNumber}`,
+            balanceAfter: cust.khataBalance,
+          });
+        }
+        await cust.save();
+      }
+    }
+
+    // 3. Remove from database
+    await Bill.deleteOne({ _id: bill._id });
+
+    res.json({
+      success: true,
+      message: `Invoice ${bill.invoiceNumber} deleted permanently from database`,
+    });
+  } catch (error) {
+    console.error('Error deleting bill:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;
+
