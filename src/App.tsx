@@ -15,7 +15,7 @@ import { InvoiceModal } from './components/InvoiceModal';
 import { AddProductModal } from './components/modals/AddProductModal';
 import { AddCustomerModal } from './components/modals/AddCustomerModal';
 import { api } from './services/api';
-import type { Bill, HealthResponse, Product } from './types';
+import type { Bill, Customer, HealthResponse, Product } from './types';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AlertCircle, X } from 'lucide-react';
 import './App.css';
@@ -59,6 +59,8 @@ export function App() {
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [customerRefreshKey, setCustomerRefreshKey] = useState(0);
+  const [lastAddedCustomer, setLastAddedCustomer] = useState<Customer | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [dismissOfflineBanner, setDismissOfflineBanner] = useState(false);
 
@@ -98,7 +100,7 @@ export function App() {
     loadData();
   }, [activeTab]);
 
-  // Keyboard shortcut listener: F2 triggers "New Bill", F4 triggers "Add Product"
+  // Keyboard shortcut listener: F2 triggers "New Bill", F4 triggers "Add Product", Alt+C triggers "Add Customer"
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F2') {
@@ -107,11 +109,19 @@ export function App() {
       } else if (e.key === 'F4') {
         e.preventDefault();
         setShowAddProductModal(true);
+      } else if ((e.altKey && (e.key === 'c' || e.key === 'C')) || e.key === 'F3') {
+        e.preventDefault();
+        setShowAddCustomerModal(true);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  const handleCustomerAdded = (customer: Customer) => {
+    setLastAddedCustomer(customer);
+    setCustomerRefreshKey((prev) => prev + 1);
+  };
 
   const handleInvoiceCreated = (newBill: Bill) => {
     setSelectedBill(newBill);
@@ -199,6 +209,8 @@ export function App() {
               products={products}
               onInvoiceCreated={handleInvoiceCreated}
               onOpenAddCustomer={() => setShowAddCustomerModal(true)}
+              lastAddedCustomer={lastAddedCustomer}
+              refreshTrigger={customerRefreshKey}
             />
           </ErrorBoundary>
         )}
@@ -226,6 +238,7 @@ export function App() {
           <ErrorBoundary key="customers" fallbackMessage="Customers page failed to load">
             <CustomersPage
               onOpenAddCustomer={() => setShowAddCustomerModal(true)}
+              refreshTrigger={customerRefreshKey}
             />
           </ErrorBoundary>
         )}
@@ -272,6 +285,7 @@ export function App() {
       <AddCustomerModal
         isOpen={showAddCustomerModal}
         onClose={() => setShowAddCustomerModal(false)}
+        onCustomerAdded={handleCustomerAdded}
       />
     </>
   );

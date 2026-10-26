@@ -97,13 +97,33 @@ router.post('/', async (req, res) => {
     else if (due > 0 && paid === 0) paymentStatus = 'UNPAID';
 
     // Summary text if not provided
+    // Process items ensuring valid numbers
+    const processedItems = items.map((i) => {
+      const qty = Number(i.quantity) || 1;
+      const cost = Number(i.unitCost) || 0;
+      const gst = Number(i.gstRate) !== undefined ? Number(i.gstRate) : 18;
+      const taxable = Number(i.taxableAmount) || (qty * cost);
+      const itemTotal = Number(i.totalAmount) || (taxable * (1 + gst / 100));
+      return {
+        name: (i.name || '').trim(),
+        category: i.category || 'Accessories',
+        quantity: qty,
+        unitCost: cost,
+        gstRate: gst,
+        taxableAmount: Math.round(taxable * 100) / 100,
+        totalAmount: Math.round(itemTotal * 100) / 100,
+        imeiNumbers: Array.isArray(i.imeiNumbers) ? i.imeiNumbers.filter(Boolean) : [],
+        isBarcoded: Boolean(i.isBarcoded !== false),
+      };
+    });
+
     const summary =
       itemsSummary ||
-      (items.length
-        ? items.map((i) => `${i.quantity}x ${i.name}`).join(', ')
+      (processedItems.length
+        ? processedItems.map((i) => `${i.quantity}x ${i.name}`).join(', ')
         : 'Inward Consignment');
 
-    const totalUnits = unitsCount || items.reduce((acc, i) => acc + (Number(i.quantity) || 1), 0);
+    const totalUnits = unitsCount || processedItems.reduce((acc, i) => acc + (Number(i.quantity) || 1), 0);
 
     const newPurchase = new PurchaseBill({
       supplierInvoiceNumber: supplierInvoiceNumber.trim(),
@@ -115,7 +135,7 @@ router.post('/', async (req, res) => {
         phone: supplier.phone || '',
         gstin: supplier.gstin || '',
       },
-      items,
+      items: processedItems,
       itemsSummary: summary,
       unitsCount: totalUnits,
       isBarcoded: Boolean(isBarcoded),
@@ -130,22 +150,37 @@ router.post('/', async (req, res) => {
     const saved = await newPurchase.save();
 
     // 1. Sync stock in inventory for each item
-    for (const item of items) {
+    for (const item of processedItems) {
+      if (!item.name) continue;
       try {
-        const product = await Product.findOne({
-          name: new RegExp(`^${item.name.trim()}$`, 'i'),
+        const escapedName = item.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        let product = await Product.findOne({
+          name: new RegExp(`^${escapedName}$`, 'i'),
         });
 
         if (product) {
-          product.stock += Number(item.quantity) || 1;
+          product.stock = (product.stock || 0) + Number(item.quantity);
           if (item.unitCost) product.costPrice = Number(item.unitCost);
           if (item.imeiNumbers && Array.isArray(item.imeiNumbers)) {
             item.imeiNumbers.forEach((imei) => {
-              if (!product.imeiNumbers.includes(imei)) {
+              if (imei && !product.imeiNumbers.includes(imei)) {
                 product.imeiNumbers.push(imei);
               }
             });
           }
+          await product.save();
+        } else {
+          // Auto create product in database if new
+          product = new Product({
+            name: item.name,
+            category: item.category || 'Accessories',
+            brand: 'General',
+            price: Math.round(item.unitCost * 1.25),
+            costPrice: item.unitCost,
+            gstRate: item.gstRate || 18,
+            stock: item.quantity,
+            imeiNumbers: item.imeiNumbers || [],
+          });
           await product.save();
         }
       } catch (prodErr) {
@@ -154,15 +189,18 @@ router.post('/', async (req, res) => {
     }
 
     // 2. Update Supplier balance
-    if (supplier.name) {
+    if (supplier && supplier.name) {
       try {
         let suppRecord = await Supplier.findOne({
-          $or: [{ name: supplier.name }, { phone: supplier.phone }],
+          $or: [
+            { name: new RegExp(`^${supplier.name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+            ...(supplier.phone ? [{ phone: supplier.phone.trim() }] : []),
+          ],
         });
 
         if (!suppRecord) {
           suppRecord = new Supplier({
-            name: supplier.name,
+            name: supplier.name.trim(),
             address: supplier.address || '',
             phone: supplier.phone || '',
             gstin: supplier.gstin || '',

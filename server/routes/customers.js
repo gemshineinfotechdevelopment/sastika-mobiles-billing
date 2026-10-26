@@ -78,25 +78,43 @@ router.post('/', async (req, res) => {
   try {
     const { name, phone, email, address, gstin, tier = 'REGULAR' } = req.body;
 
-    if (!name || !phone) {
-      return res.status(400).json({ success: false, message: 'Name and phone are required' });
+    const trimmedName = (name || '').trim();
+    const trimmedPhone = (phone || '').trim();
+
+    if (!trimmedName || !trimmedPhone) {
+      return res.status(400).json({ success: false, message: 'Customer Name and Phone number are required' });
     }
 
-    const existing = await Customer.findOne({ phone: phone.trim() });
+    // Check existing by exact phone or matching 10-digit number
+    const digitsOnly = trimmedPhone.replace(/\D/g, '');
+    let existing = await Customer.findOne({ phone: trimmedPhone });
+    if (!existing && digitsOnly.length >= 10) {
+      const last10 = digitsOnly.slice(-10);
+      existing = await Customer.findOne({
+        phone: { $regex: `${last10}$` },
+      });
+    }
+
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: `Customer with phone ${phone} already exists (${existing.name})`,
+        message: `Customer with phone "${trimmedPhone}" already exists (${existing.name})`,
       });
     }
 
     const customer = new Customer({
-      name: name.trim(),
-      phone: phone.trim(),
+      name: trimmedName,
+      phone: trimmedPhone,
       email: email ? email.trim() : '',
       address: address ? address.trim() : '',
       gstin: gstin ? gstin.trim() : '',
       tier,
+      khataBalance: 0,
+      khataStatus: 'settled',
+      dueText: 'Settled',
+      lifetimeSales: 0,
+      billsCount: 0,
+      loyaltyPoints: 0,
     });
 
     const saved = await customer.save();

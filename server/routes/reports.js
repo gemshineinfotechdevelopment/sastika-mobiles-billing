@@ -3,8 +3,20 @@ import { Bill } from '../models/Bill.js';
 import { Product } from '../models/Product.js';
 import { PurchaseBill } from '../models/PurchaseBill.js';
 import { Customer } from '../models/Customer.js';
+import { Settings } from '../models/Settings.js';
 
 const router = express.Router();
+
+function getCurrentFinancialYear() {
+  const d = new Date();
+  const month = d.getMonth();
+  const year = d.getFullYear();
+  if (month >= 3) {
+    return `FY ${year} - ${year + 1}`;
+  } else {
+    return `FY ${year - 1} - ${year}`;
+  }
+}
 
 // GET consolidated Reports & Financial Analytics
 router.get('/analytics', async (req, res) => {
@@ -12,7 +24,7 @@ router.get('/analytics', async (req, res) => {
     const today = new Date().toISOString().slice(0, 10);
     const startOfMonth = today.slice(0, 7) + '-01';
 
-    // 1. Live bills
+    // 1. Live bills from database
     const allBills = await Bill.find({ isCancelled: { $ne: true } });
     const todayBills = allBills.filter((b) => (b.date || '').slice(0, 10) === today);
     const monthBills = allBills.filter((b) => {
@@ -24,10 +36,8 @@ router.get('/analytics', async (req, res) => {
     const todayInvoicesCount = todayBills.length;
 
     const monthlySales = monthBills.reduce((acc, b) => acc + (b.grandTotal || 0), 0);
-    const monthlyTarget = 1500000.0;
-    const monthlyTargetPercent = Number(((monthlySales / monthlyTarget) * 100).toFixed(1));
 
-    // 2. Purchases & Supplier Dues
+    // 2. Purchases & Supplier Dues from database
     const allPurchases = await PurchaseBill.find();
     const monthPurchases = allPurchases.filter((p) => {
       const d = (p.date || '').slice(0, 10);
@@ -37,7 +47,7 @@ router.get('/analytics', async (req, res) => {
     const supplierDues = allPurchases.reduce((acc, p) => acc + (p.balanceDue || 0), 0);
     const inwardConsignmentsCount = monthPurchases.length;
 
-    // 3. Stock valuation from Products
+    // 3. Stock valuation from Products in database
     const allProducts = await Product.find();
     let totalStockUnits = 0;
     let stockValuation = 0;
@@ -47,7 +57,7 @@ router.get('/analytics', async (req, res) => {
     allProducts.forEach((p) => {
       const stock = p.stock || 0;
       totalStockUnits += stock;
-      stockValuation += stock * (p.costPrice || p.price * 0.8);
+      stockValuation += stock * (p.costPrice || (p.price ? p.price * 0.8 : 0));
       if ((p.category || '').toLowerCase().includes('phone')) {
         phonesCount += stock;
       } else {
@@ -55,22 +65,25 @@ router.get('/analytics', async (req, res) => {
       }
     });
 
-    // 4. Critical Stock Reorder Alerts
+    // 4. Critical Stock Reorder Alerts from database
     const criticalStockProducts = await Product.find({
-      $expr: { $lte: ['$stock', '$minThreshold'] },
-    }).limit(6);
+      $expr: {
+        $lte: ['$stock', { $ifNull: ['$minThreshold', 5] }],
+      },
+    }).sort({ stock: 1 }).limit(10);
 
     const reorderAlerts = criticalStockProducts.map((p) => ({
       id: p.id,
       name: p.name,
+      category: p.category || 'General',
       subtext: `${p.variant || p.model || 'Standard'} | Rate: ₹${(p.price || 0).toLocaleString('en-IN')}`,
       rate: p.price || 0,
       availUnits: p.stock || 0,
-      minSafe: p.minThreshold || 4,
+      minSafe: p.minThreshold || 5,
       isUrgent: (p.stock || 0) <= 1,
     }));
 
-    // 5. Payment mode breakdown from actual bills
+    // 5. Payment mode breakdown from actual bills in database
     const modeCounts = { upi: 0, cash: 0, card: 0, khata: 0 };
     allBills.forEach((b) => {
       const mode = (b.paymentMode || b.tenderMode || '').toLowerCase();
@@ -85,20 +98,20 @@ router.get('/analytics', async (req, res) => {
       }
     });
 
-    const totalModes = allBills.length || 1;
-    const paymentModeBreakdown = allBills.length > 0 ? {
+    const totalModes = allBills.length;
+    const paymentModeBreakdown = totalModes > 0 ? {
       upi: Math.round((modeCounts.upi / totalModes) * 100),
       cash: Math.round((modeCounts.cash / totalModes) * 100),
       card: Math.round((modeCounts.card / totalModes) * 100),
       khata: Math.round((modeCounts.khata / totalModes) * 100),
     } : {
-      upi: 58,
-      cash: 24,
-      card: 12,
-      khata: 6,
+      upi: 0,
+      cash: 0,
+      card: 0,
+      khata: 0,
     };
 
-    // 6. Top selling items from actual bills
+    // 6. Top selling items from actual bills in database
     const itemMap = new Map();
     allBills.forEach((b) => {
       (b.items || []).forEach((item) => {
@@ -110,11 +123,25 @@ router.get('/analytics', async (req, res) => {
       });
     });
 
-    const topSellingItems = Array.from(itemMap.values())
-      .sort((a, b) => b.soldUnits - a.soldUnits)
-      .slice(0, 5);
+    const productCategoryMap = new Map();
+    allProducts.forEach((p) => {
+      if (p.name && p.category) {
+        productCategoryMap.set(p.name.trim().toLowerCase(), p.category);
+      }
+    });
 
-    // 7. GST & Tax Compliance calculation
+    const topSellingItems = Array.from(itemMap.values())
+      .map((item) => {
+        const foundCategory = productCategoryMap.get(item.name.trim().toLowerCase());
+        return {
+          ...item,
+          category: foundCategory || item.category,
+        };
+      })
+      .sort((a, b) => b.soldUnits - a.soldUnits)
+      .slice(0, 10);
+
+    // 7. GST & Tax Compliance calculation from actual bills
     let cgstCollected = 0;
     let sgstCollected = 0;
     let taxableTurnover = 0;
@@ -136,23 +163,28 @@ router.get('/analytics', async (req, res) => {
       status: 'Active GSTR-1',
     };
 
+    // 8. Shop Settings from database
+    const shopSettings = await Settings.findOne();
+
     res.json({
       success: true,
-      period: 'FY 2024 - 2025 (Active Live)',
-      // Root-level fields for easy consumption by ReportsPage
+      period: `${getCurrentFinancialYear()} (Live Database)`,
       grossSalesToday,
       monthlySales,
       stockValuation: Math.round(stockValuation),
       supplierDues,
       todayInvoicesCount,
       paymentModeBreakdown,
-      topSellingItems: topSellingItems.length ? topSellingItems : [
-        { name: 'Vivo V29 5G (8GB / 128GB)', category: 'Smartphones', soldUnits: 14, revenue: 447986 },
-        { name: 'Super D 9H Matte Tempered Glass', category: 'Screen Protectors', soldUnits: 86, revenue: 25714 },
-      ],
+      topSellingItems,
       criticalReorderAlerts: reorderAlerts,
       reorderAlerts,
       gstCompliance,
+      shopSettings: shopSettings ? {
+        shopName: shopSettings.shopName,
+        phone: shopSettings.phone,
+        address: shopSettings.address,
+        gstin: shopSettings.gstin,
+      } : null,
       kpis: {
         todaySales: {
           value: grossSalesToday,
@@ -162,8 +194,6 @@ router.get('/analytics', async (req, res) => {
         },
         monthlySales: {
           value: monthlySales,
-          target: monthlyTarget,
-          targetPercent: monthlyTargetPercent,
           trend: 'Monthly Active',
         },
         purchases: {

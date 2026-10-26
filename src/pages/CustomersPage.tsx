@@ -6,6 +6,8 @@ import {
   FileText,
   X,
   Phone,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import type { Customer } from '../types';
 import { CollectPaymentModal } from '../components/modals/CollectPaymentModal';
@@ -15,12 +17,15 @@ import { api } from '../services/api';
 interface CustomersPageProps {
   onOpenAddCustomer: () => void;
   onSelectCustomerForBill?: (customer: Customer) => void;
+  refreshTrigger?: number;
 }
 
 export const CustomersPage: React.FC<CustomersPageProps> = ({
   onOpenAddCustomer,
+  refreshTrigger,
 }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'due' | 'settled'>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -34,6 +39,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
   // Load live customers from database
   const fetchCustomers = async () => {
+    setLoading(true);
     try {
       const res = await api.getCustomers();
       if (res && res.customers) {
@@ -41,12 +47,14 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
       }
     } catch (err) {
       console.warn('Could not load customers:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, [refreshTrigger]);
 
   // Filter customers
   const filteredCustomers = useMemo(() => {
@@ -122,13 +130,27 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={onOpenAddCustomer}
-          className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs active:scale-98 self-start sm:self-auto"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Add Customer (Alt+C)</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={fetchCustomers}
+            disabled={loading}
+            title="Refresh Customers List from Database"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 transition-all cursor-pointer shadow-2xs active:scale-98 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-blue-600' : 'text-slate-500'}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenAddCustomer}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs active:scale-98"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Add Customer (Alt+C)</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. Search & Tab Filter Bar */}
@@ -194,7 +216,16 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {paginatedCustomers.length === 0 ? (
+              {loading && customers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                      <span>Loading customers from database...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedCustomers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-slate-400">
                     No customers found matching your criteria.

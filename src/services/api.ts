@@ -109,7 +109,10 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(customer),
     });
-    if (!res.ok) throw new Error('Failed to save customer');
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || 'Failed to save customer');
+    }
     return res.json();
   },
 
@@ -122,7 +125,10 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to record customer payment');
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || 'Failed to record customer payment');
+    }
     return res.json();
   },
 

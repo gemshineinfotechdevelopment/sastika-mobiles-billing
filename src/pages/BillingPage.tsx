@@ -24,6 +24,8 @@ interface BillingPageProps {
   products: Product[];
   onInvoiceCreated: (bill: Bill) => void;
   onOpenAddCustomer?: () => void;
+  lastAddedCustomer?: Customer | null;
+  refreshTrigger?: number;
 }
 
 interface PosProduct {
@@ -73,6 +75,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   products: serverProducts,
   onInvoiceCreated,
   onOpenAddCustomer,
+  lastAddedCustomer,
+  refreshTrigger,
 }) => {
   const scanInputRef = useRef<HTMLInputElement>(null);
   const billScanInputRef = useRef<HTMLInputElement>(null);
@@ -163,13 +167,16 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       .then((res) => {
         if (res && res.customers && res.customers.length > 0) {
           setCustomerList(res.customers);
-          if (customerMode === 'registered' && !initialDraft.selectedCustomer) {
+          if (lastAddedCustomer) {
+            setSelectedCustomer(lastAddedCustomer);
+            setCustomerMode('registered');
+          } else if (customerMode === 'registered' && !initialDraft.selectedCustomer) {
             setSelectedCustomer(res.customers[0]);
           }
         }
       })
       .catch((err) => console.warn('Could not load customers for billing:', err));
-  }, []);
+  }, [refreshTrigger, lastAddedCustomer]);
 
   // Active invoice items (restored from persistent session)
   const [cartItems, setCartItems] = useState<BillItem[]>(() => {
