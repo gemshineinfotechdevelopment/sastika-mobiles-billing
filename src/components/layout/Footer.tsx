@@ -1,6 +1,6 @@
 import React from 'react';
 import { Printer, ShieldCheck, Zap } from 'lucide-react';
-import sastikaLogo from '../../assets/sastika-logo.jpeg';
+import sastikaLogo from '../../assets/sastika-logo1.jpeg';
 
 export const Footer: React.FC = () => {
   return (

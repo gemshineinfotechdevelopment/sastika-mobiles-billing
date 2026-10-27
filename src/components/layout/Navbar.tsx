@@ -1,7 +1,7 @@
 import React from 'react';
 import { Menu } from 'lucide-react';
 import type { HealthResponse } from '../../types';
-import sastikaLogo from '../../assets/sastika-logo.jpeg';
+import sastikaLogo from '../../assets/sastika-logo1.jpeg';
 
 interface NavbarProps {
   isSidebarOpen: boolean;

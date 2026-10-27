@@ -91,26 +91,29 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Customer Name and Phone number are required' });
     }
 
-    // Check existing by exact phone or matching 10-digit number
+    // Enforce exactly 10-digit phone number
     const digitsOnly = trimmedPhone.replace(/\D/g, '');
-    let existing = await Customer.findOne({ phone: trimmedPhone });
-    if (!existing && digitsOnly.length >= 10) {
-      const last10 = digitsOnly.slice(-10);
+    if (digitsOnly.length !== 10) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid 10-digit mobile number' });
+    }
+
+    let existing = await Customer.findOne({ phone: digitsOnly });
+    if (!existing) {
       existing = await Customer.findOne({
-        phone: { $regex: `${last10}$` },
+        phone: { $regex: `${digitsOnly}$` },
       });
     }
 
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: `Customer with phone "${trimmedPhone}" already exists (${existing.name})`,
+        message: `Customer with phone "${digitsOnly}" already exists (${existing.name})`,
       });
     }
 
     const customer = new Customer({
       name: trimmedName,
-      phone: trimmedPhone,
+      phone: digitsOnly,
       email: email ? email.trim() : '',
       address: address ? address.trim() : '',
       gstin: gstin ? gstin.trim() : '',
@@ -175,7 +178,10 @@ router.post('/:id/collect-payment', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Valid payment amount is required' });
     }
 
-    let customer = await Customer.findOne({ id });
+    // Lookup customer by id, phone, or _id
+    let customer = await Customer.findOne({
+      $or: [{ id }, { phone: id }],
+    });
     if (!customer && id.match(/^[0-9a-fA-F]{24}$/)) {
       customer = await Customer.findById(id);
     }
@@ -185,33 +191,76 @@ router.post('/:id/collect-payment', async (req, res) => {
     }
 
     // Deduct from Khata balance
-    const currentBalance = customer.khataBalance || 0;
+    const currentBalance = Number(customer.khataBalance) || 0;
     const newBalance = Math.max(0, currentBalance - payAmount);
-    customer.khataBalance = newBalance;
-    customer.khataStatus = newBalance === 0 ? 'settled' : 'pending';
-    if (newBalance === 0) customer.dueText = 'Settled';
+    customer.khataBalance = Number(newBalance.toFixed(2));
+    customer.khataStatus = newBalance === 0 ? 'settled' : (newBalance > 10000 ? 'risk' : 'pending');
+    customer.dueText = newBalance === 0 ? 'Settled' : `Due: ₹${newBalance.toLocaleString('en-IN')}`;
+
+    const receiptNumber = billNumber || `RCPT-${Date.now().toString().slice(-6)}`;
 
     // Append to customer ledger
+    if (!Array.isArray(customer.ledger)) {
+      customer.ledger = [];
+    }
     customer.ledger.push({
       date: new Date().toISOString().slice(0, 10),
-      billNumber: billNumber || `RCPT-${Date.now().toString().slice(-4)}`,
+      billNumber: receiptNumber,
       type: 'PAYMENT',
       amount: payAmount,
       paymentMode,
-      notes: notes || 'Credit balance settlement',
-      balanceAfter: newBalance,
+      notes: notes || `Credit payment received via ${paymentMode}`,
+      balanceAfter: Number(newBalance.toFixed(2)),
     });
 
     await customer.save();
 
-    // If billNumber was specified, update that bill's balanceDue
+    // Reconcile bills:
+    // If specific billNumber was specified, update that bill's balanceDue
     if (billNumber) {
       const bill = await Bill.findOne({ invoiceNumber: billNumber });
       if (bill) {
-        bill.paidAmount = (bill.paidAmount || 0) + payAmount;
-        bill.balanceDue = Math.max(0, (bill.balanceDue || 0) - payAmount);
-        if (bill.balanceDue === 0) bill.status = 'PAID';
+        bill.paidAmount = (Number(bill.paidAmount) || 0) + payAmount;
+        bill.balanceDue = Math.max(0, (Number(bill.balanceDue) || 0) - payAmount);
+        if (bill.balanceDue === 0) {
+          bill.status = 'PAID';
+        } else {
+          bill.status = 'PARTIAL';
+        }
         await bill.save();
+      }
+    } else {
+      // Auto-reconcile customer's pending bills in FIFO order (oldest first)
+      const custMatchConditions = [];
+      if (customer.id) custMatchConditions.push({ 'customer.id': customer.id });
+      if (customer.phone && customer.phone !== 'Cash Counter' && customer.phone !== 'Counter Sale') {
+        custMatchConditions.push({ 'customer.phone': customer.phone });
+      }
+      if (customer._id) custMatchConditions.push({ 'customer.id': customer._id.toString() });
+
+      if (custMatchConditions.length > 0) {
+        const pendingBills = await Bill.find({
+          $or: custMatchConditions,
+          balanceDue: { $gt: 0 },
+          isCancelled: { $ne: true },
+          status: { $ne: 'CANCELLED' },
+        }).sort({ date: 1, createdAt: 1 });
+
+        let unallocated = payAmount;
+        for (const bill of pendingBills) {
+          if (unallocated <= 0) break;
+          const due = Number(bill.balanceDue) || 0;
+          const alloc = Math.min(due, unallocated);
+          bill.paidAmount = (Number(bill.paidAmount) || 0) + alloc;
+          bill.balanceDue = Math.max(0, due - alloc);
+          if (bill.balanceDue === 0) {
+            bill.status = 'PAID';
+          } else {
+            bill.status = 'PARTIAL';
+          }
+          await bill.save();
+          unallocated -= alloc;
+        }
       }
     }
 
@@ -220,6 +269,7 @@ router.post('/:id/collect-payment', async (req, res) => {
       message: `Payment of ₹${payAmount.toLocaleString('en-IN')} recorded successfully`,
       newBalance,
       customer,
+      receiptNumber,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
