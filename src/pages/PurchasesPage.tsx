@@ -36,7 +36,7 @@ export const PurchasesPage: React.FC = () => {
   const [bills, setBills] = useState<PurchaseBill[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [_loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusTab, setStatusTab] = useState<'all' | 'due' | 'paid'>('all');
   const [currentPage, setCurrentPage] = useState(1);
