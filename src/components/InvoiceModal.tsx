@@ -254,6 +254,12 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                   <span>CGST + SGST:</span>
                   <span className="font-mono">₹{(bill.cgstTotal + bill.sgstTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 </div>
+                {((bill.discount ?? 0) > 0) && (
+                  <div className="flex justify-between text-[9px] text-rose-700 font-bold">
+                    <span>Discount {bill.discountPercent ? `(${bill.discountPercent}%)` : ''}:</span>
+                    <span className="font-mono">-₹{(bill.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-black text-xs text-slate-950 pt-0.5 border-t border-slate-900">
                   <span>NET TOTAL:</span>
                   <span className="font-mono">₹{bill.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
@@ -391,6 +397,12 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                   <span>SGST (9%):</span>
                   <span className="font-mono">₹{bill.sgstTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 </div>
+                {((bill.discount ?? 0) > 0) && (
+                  <div className="flex justify-between text-[10.5px] text-rose-700 font-bold">
+                    <span>Discount {bill.discountPercent ? `(${bill.discountPercent}%)` : ''}:</span>
+                    <span className="font-mono">-₹{(bill.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-black text-sm text-slate-950 border-t-2 border-slate-900 pt-1.5 mt-1">
                   <span>GRAND TOTAL:</span>
                   <span className="font-mono text-base">₹{bill.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
@@ -630,6 +642,16 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                         ₹{bill.sgstTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                     </tr>
+                    {((bill.discount ?? 0) > 0) && (
+                      <tr className="border-b border-slate-900 bg-rose-50/50">
+                        <td className="py-1.5 px-3 font-bold text-rose-800 border-r border-slate-900">
+                          Discount {bill.discountPercent ? `(${bill.discountPercent}%)` : ''}:
+                        </td>
+                        <td className="py-1.5 px-3 text-right font-mono font-bold text-rose-800">
+                          -₹{(bill.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    )}
                     <tr className="border-b-2 border-slate-900 bg-slate-50">
                       <td className="py-2 px-3 font-black text-sm text-slate-900 border-r border-slate-900 uppercase">
                         Grand Total:

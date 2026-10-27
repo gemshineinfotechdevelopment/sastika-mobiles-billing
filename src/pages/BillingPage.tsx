@@ -24,6 +24,7 @@ import {
   Clock,
   Phone,
   Check,
+  Percent,
 } from 'lucide-react';
 import type { Bill, BillItem, Customer, Product, EmiDetails, EmiScheduleItem } from '../types';
 import { api } from '../services/api';
@@ -60,6 +61,8 @@ interface BillingDraftSession {
   cartItems: BillItem[];
   selectedCustomer: Customer;
   discount: number;
+  discountAmount?: number | '';
+  discountPercent?: number | '';
   discountLabel: string;
   paymentMode: 'UPI' | 'Cash' | 'Card' | 'Credit';
   invoiceNotes: string;
@@ -241,12 +244,15 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     return Array.isArray(initialDraft.cartItems) ? initialDraft.cartItems : [];
   });
 
-  // Financial Discount & Payment Mode (restored from persistent session)
-  const [discount, setDiscount] = useState<number>(() => {
-    return typeof initialDraft.discount === 'number' ? initialDraft.discount : 0;
+  // Financial Discount & Special Percentage Discount (restored from persistent session)
+  const [discountAmount, setDiscountAmount] = useState<number | ''>(() => {
+    if (typeof initialDraft.discountAmount === 'number' || initialDraft.discountAmount === '') {
+      return initialDraft.discountAmount;
+    }
+    return typeof initialDraft.discount === 'number' && initialDraft.discount > 0 ? initialDraft.discount : '';
   });
-  const [discountLabel, setDiscountLabel] = useState<string>(() => {
-    return initialDraft.discountLabel || 'Store Discount';
+  const [discountPercent, setDiscountPercent] = useState<number | ''>(() => {
+    return typeof initialDraft.discountPercent === 'number' ? initialDraft.discountPercent : '';
   });
   const [paymentMode, setPaymentMode] = useState<'UPI' | 'Cash' | 'Card' | 'Credit'>(() => {
     return initialDraft.paymentMode || 'UPI';
@@ -275,14 +281,41 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const [customTenureInput, setCustomTenureInput] = useState<string>('');
   const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
 
+  // Financial calculations
+  const rawSubtotal = cartItems.reduce((acc, item) => acc + item.total, 0);
+  const totalItemsCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+
+  // Discount calculations (Flat Store Discount ₹ + Special Discount % with decimal support)
+  const flatDiscountNum = Math.max(0, typeof discountAmount === 'number' ? discountAmount : Number(discountAmount) || 0);
+  const discountPercentNum = Math.max(0, typeof discountPercent === 'number' ? discountPercent : Number(discountPercent) || 0);
+  const percentDiscountAmount = Number(((rawSubtotal * discountPercentNum) / 100).toFixed(2));
+  const totalDiscount = Math.min(rawSubtotal, Number((flatDiscountNum + percentDiscountAmount).toFixed(2)));
+
+  const discountLabelText = useMemo(() => {
+    if (flatDiscountNum > 0 && discountPercentNum > 0) {
+      return `Store Discount (₹${flatDiscountNum}) + Special Discount (${discountPercentNum}%)`;
+    }
+    if (discountPercentNum > 0) {
+      return `Special Discount (${discountPercentNum}%)`;
+    }
+    if (flatDiscountNum > 0) {
+      return 'Store Discount';
+    }
+    return 'Discount';
+  }, [flatDiscountNum, discountPercentNum]);
+
+  const netPayable = Math.max(0, Number((rawSubtotal - totalDiscount).toFixed(2)));
+
   // Persist Billing Session across page refreshes, tab switching, and browser restart
   useEffect(() => {
     try {
       const sessionData: BillingDraftSession = {
         cartItems,
         selectedCustomer,
-        discount,
-        discountLabel,
+        discount: totalDiscount,
+        discountAmount,
+        discountPercent,
+        discountLabel: discountLabelText,
         paymentMode,
         invoiceNotes,
         viewMode,
@@ -300,8 +333,10 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   }, [
     cartItems,
     selectedCustomer,
-    discount,
-    discountLabel,
+    discountAmount,
+    discountPercent,
+    totalDiscount,
+    discountLabelText,
     paymentMode,
     invoiceNotes,
     viewMode,
@@ -318,7 +353,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       if (e.key === BILLING_SESSION_STORAGE_KEY) {
         if (!e.newValue) {
           setCartItems([]);
-          setDiscount(0);
+          setDiscountAmount('');
+          setDiscountPercent('');
           setSelectedCustomer({ name: '', phone: '', email: '', address: '', gstin: '', tier: 'REGULAR' });
           return;
         }
@@ -326,8 +362,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           const parsed: BillingDraftSession = JSON.parse(e.newValue);
           if (Array.isArray(parsed.cartItems)) setCartItems(parsed.cartItems);
           if (parsed.selectedCustomer) setSelectedCustomer(parsed.selectedCustomer);
-          if (typeof parsed.discount === 'number') setDiscount(parsed.discount);
-          if (parsed.discountLabel) setDiscountLabel(parsed.discountLabel);
+          if (parsed.discountAmount !== undefined) setDiscountAmount(parsed.discountAmount);
+          if (parsed.discountPercent !== undefined) setDiscountPercent(parsed.discountPercent);
           if (parsed.paymentMode) setPaymentMode(parsed.paymentMode);
           if (parsed.invoiceNotes) setInvoiceNotes(parsed.invoiceNotes);
           if (parsed.viewMode) setViewMode(parsed.viewMode);
@@ -517,11 +553,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     })
     .slice(0, 6);
 
-  // Financial calculations
-  const rawSubtotal = cartItems.reduce((acc, item) => acc + item.total, 0);
-  const totalItemsCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-  const netPayable = Math.max(0, rawSubtotal - discount);
-
   // Reverse GST for the net total (18% GST standard)
   const taxableValue = Number((netPayable / 1.18).toFixed(2));
   const totalTax = Number((netPayable - taxableValue).toFixed(2));
@@ -673,10 +704,12 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         dueDate: isCreditEmi ? firstDueDate : '',
         status: finalBalanceDue > 0 ? 'PARTIAL' : 'PAID',
         emiDetails: emiPayload,
+        discount: totalDiscount,
+        discountPercent: discountPercentNum > 0 ? discountPercentNum : 0,
         notes: isCreditEmi
           ? `Phone EMI (${detectedModelName}): ₹${downPaymentNum.toLocaleString('en-IN')} Initial Paid | ₹${principalDue.toLocaleString('en-IN')} Financed @ ${interestRateNum}% Int (${tenureMonthsNum}M @ ₹${monthlyEmi.toLocaleString('en-IN')}/mo)`
-          : discount > 0
-          ? `${discountLabel}: -₹${discount}`
+          : totalDiscount > 0
+          ? `${discountLabelText}: -₹${totalDiscount.toFixed(2)}`
           : invoiceNotes,
       };
 
@@ -685,7 +718,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         localStorage.removeItem(BILLING_SESSION_STORAGE_KEY);
         onInvoiceCreated(res.bill);
         setCartItems([]);
-        setDiscount(0);
+        setDiscountAmount('');
+        setDiscountPercent('');
         setSelectedCustomer({ name: '', phone: '', email: '', address: '', gstin: '', tier: 'REGULAR' });
         setViewMode('catalog');
         // Refresh local products to reflect decremented stock
@@ -746,16 +780,19 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               emiSchedule,
             }
           : undefined,
+        discount: totalDiscount,
+        discountPercent: discountPercentNum > 0 ? discountPercentNum : 0,
         notes: isCreditEmi
           ? `Phone EMI (${detectedModelName}): ₹${downPaymentNum.toLocaleString('en-IN')} Initial Paid | ₹${principalDue.toLocaleString('en-IN')} Financed @ ${interestRateNum}% Int (${tenureMonthsNum}M @ ₹${monthlyEmi.toLocaleString('en-IN')}/mo)`
-          : discount > 0
-          ? `${discountLabel}: -₹${discount}`
+          : totalDiscount > 0
+          ? `${discountLabelText}: -₹${totalDiscount.toFixed(2)}`
           : invoiceNotes,
       };
       localStorage.removeItem(BILLING_SESSION_STORAGE_KEY);
       onInvoiceCreated(localBill);
       setCartItems([]);
-      setDiscount(0);
+      setDiscountAmount('');
+      setDiscountPercent('');
       setSelectedCustomer({ name: '', phone: '', email: '', address: '', gstin: '', tier: 'REGULAR' });
       setViewMode('catalog');
     } finally {
@@ -926,7 +963,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                 if (cartItems.length === 0 || window.confirm('Clear all current invoice items and start fresh?')) {
                   localStorage.removeItem(BILLING_SESSION_STORAGE_KEY);
                   setCartItems([]);
-                  setDiscount(0);
+                  setDiscountAmount('');
+                  setDiscountPercent('');
                   setSelectedCustomer({ name: '', phone: '', email: '', address: '', gstin: '', tier: 'REGULAR' });
                   setCustomerSearchQuery('');
                   setTimeout(() => billScanInputRef.current?.focus(), 50);
@@ -1949,31 +1987,138 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Store Discount (₹)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">
-                    ₹
+            {/* Section 4: Discounts (Flat ₹ & Special % with decimal support) & Bill Remarks */}
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Invoice Discounts &amp; Special Concession</span>
+                </span>
+                {totalDiscount > 0 && (
+                  <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 font-mono">
+                    Total: -₹{totalDiscount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </span>
-                  <input
-                    type="number"
-                    min="0"
-                    max={rawSubtotal}
-                    value={discount === 0 ? '' : discount}
-                    onChange={(e) => {
-                      const val = Math.max(0, Number(e.target.value) || 0);
-                      setDiscount(val);
-                      setDiscountLabel(val > 0 ? 'Discount' : 'No Discount');
-                    }}
-                    placeholder="0"
-                    className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-blue-600 bg-slate-50/50"
-                  />
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 1. Flat Store Discount in Rupees */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">
+                      Store Discount (₹ Flat)
+                    </label>
+                    <span className="text-[10px] text-slate-400">Rupees</span>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">
+                      ₹
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      max={rawSubtotal}
+                      step="any"
+                      value={discountAmount === '' ? '' : discountAmount}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
+                        setDiscountAmount(val);
+                      }}
+                      placeholder="0"
+                      className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-blue-600 bg-slate-50/50"
+                    />
+                  </div>
+                  {/* Quick rupee chips */}
+                  <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                    {[50, 100, 200, 500].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setDiscountAmount(amt)}
+                        className={`px-1.5 py-0.5 text-[10px] rounded border font-mono cursor-pointer transition-colors ${
+                          discountAmount === amt
+                            ? 'bg-blue-600 text-white border-blue-600 font-bold'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        ₹{amt}
+                      </button>
+                    ))}
+                    {discountAmount !== '' && (
+                      <button
+                        type="button"
+                        onClick={() => setDiscountAmount('')}
+                        className="px-1.5 py-0.5 text-[10px] rounded border border-slate-200 text-slate-400 hover:text-slate-600 bg-white cursor-pointer"
+                        title="Clear flat discount"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Special Discount in Percentage (Decimals Allowed) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                      <Percent className="w-3 h-3 text-purple-600" />
+                      <span>Special Discount (% Percentage)</span>
+                    </label>
+                    {discountPercentNum > 0 && (
+                      <span className="text-[10px] font-bold text-rose-600 font-mono">
+                        = -₹{percentDiscountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={discountPercent === '' ? '' : discountPercent}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? '' : Math.min(100, Math.max(0, Number(e.target.value)));
+                        setDiscountPercent(val);
+                      }}
+                      placeholder="e.g. 5 or 2.5"
+                      className="w-full pl-3 pr-8 py-2 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-blue-600 bg-slate-50/50"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs pointer-events-none">
+                      %
+                    </span>
+                  </div>
+                  {/* Quick percentage chips (decimal supported) */}
+                  <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                    {[2, 3, 5, 7.5, 10].map((pct) => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => setDiscountPercent(pct)}
+                        className={`px-1.5 py-0.5 text-[10px] rounded border font-mono cursor-pointer transition-colors ${
+                          discountPercent === pct
+                            ? 'bg-purple-600 text-white border-purple-600 font-bold'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                    {discountPercent !== '' && (
+                      <button
+                        type="button"
+                        onClick={() => setDiscountPercent('')}
+                        className="px-1.5 py-0.5 text-[10px] rounded border border-slate-200 text-slate-400 hover:text-slate-600 bg-white cursor-pointer"
+                        title="Clear percentage discount"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
+              {/* 3. Bill Remarks / Notes */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
                   Bill Remarks / Notes
@@ -2020,10 +2165,20 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                   ₹{sgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </span>
               </div>
-              {discount > 0 && (
-                <div className="flex items-center justify-between text-rose-600 font-semibold">
-                  <span>Discount</span>
-                  <span className="font-mono">-₹{discount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              {totalDiscount > 0 && (
+                <div className="bg-rose-50/80 p-2 rounded-xl border border-rose-200/60 space-y-0.5">
+                  <div className="flex items-center justify-between text-rose-700 font-bold">
+                    <span>Discount Applied</span>
+                    <span className="font-mono">-₹{totalDiscount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10.5px] text-rose-600">
+                    <span>Breakdown:</span>
+                    <span className="font-mono">
+                      {flatDiscountNum > 0 && `Flat: ₹${flatDiscountNum.toLocaleString('en-IN')}`}
+                      {flatDiscountNum > 0 && discountPercentNum > 0 && ' + '}
+                      {discountPercentNum > 0 && `${discountPercentNum}%: ₹${percentDiscountAmount.toLocaleString('en-IN')}`}
+                    </span>
+                  </div>
                 </div>
               )}
 

@@ -104,6 +104,14 @@ const billSchema = new mongoose.Schema(
       required: true,
       default: 0,
     },
+    discount: {
+      type: Number,
+      default: 0,
+    },
+    discountPercent: {
+      type: Number,
+      default: 0,
+    },
     grandTotal: {
       type: Number,
       required: true,

@@ -297,6 +297,8 @@ router.post('/', async (req, res) => {
       customerType = 'REGULAR',
       counter = 'Terminal 01',
       emiDetails,
+      discount = 0,
+      discountPercent = 0,
     } = req.body;
 
     if (!items || !items.length) {
@@ -395,6 +397,8 @@ router.post('/', async (req, res) => {
       cgstTotal: Number(cgstTotal.toFixed(2)),
       sgstTotal: Number(sgstTotal.toFixed(2)),
       totalTax: Number((cgstTotal + sgstTotal).toFixed(2)),
+      discount: Number(Number(discount || req.body.discount || 0).toFixed(2)),
+      discountPercent: Number(Number(discountPercent || req.body.discountPercent || 0).toFixed(2)),
       grandTotal: Number(grandTotal.toFixed(2)),
       paidAmount: Number(calculatedPaid.toFixed(2)),
       balanceDue: Number(calculatedDue.toFixed(2)),

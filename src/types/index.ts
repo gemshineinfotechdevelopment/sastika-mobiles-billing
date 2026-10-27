@@ -111,6 +111,8 @@ export interface Bill {
   cgstTotal: number;
   sgstTotal: number;
   totalTax: number;
+  discount?: number;
+  discountPercent?: number;
   grandTotal: number;
   paymentMode: string;
   notes?: string;
