@@ -170,6 +170,27 @@ const billSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    emiDetails: {
+      isEmi: { type: Boolean, default: false },
+      modelName: { type: String, default: '' },
+      downPayment: { type: Number, default: 0 },
+      principalAmount: { type: Number, default: 0 },
+      interestRate: { type: Number, default: 0 },
+      interestAmount: { type: Number, default: 0 },
+      tenureMonths: { type: Number, default: 0 },
+      serviceCharge: { type: Number, default: 0 },
+      monthlyEmi: { type: Number, default: 0 },
+      totalFinancedAmount: { type: Number, default: 0 },
+      firstDueDate: { type: String, default: '' },
+      emiSchedule: [
+        {
+          installmentNo: Number,
+          dueDate: String,
+          amount: Number,
+          status: { type: String, default: 'PENDING' },
+        },
+      ],
+    },
   },
   {
     timestamps: true,

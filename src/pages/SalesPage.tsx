@@ -383,10 +383,15 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 whitespace-nowrap">
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700">
                           {bill.paymentMode || bill.tenderMode || 'Cash'}
                         </span>
+                        {bill.emiDetails?.isEmi && (
+                          <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            EMI {bill.emiDetails.tenureMonths}M
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         {isVoided ? (

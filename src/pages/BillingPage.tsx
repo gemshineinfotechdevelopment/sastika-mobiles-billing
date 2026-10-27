@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Search,
   Plus,
@@ -18,8 +18,14 @@ import {
   ChevronDown,
   ChevronUp,
   RotateCcw,
+  Calendar,
+  Smartphone,
+  Sparkles,
+  Clock,
+  Phone,
+  Check,
 } from 'lucide-react';
-import type { Bill, BillItem, Customer, Product } from '../types';
+import type { Bill, BillItem, Customer, Product, EmiDetails, EmiScheduleItem } from '../types';
 import { api } from '../services/api';
 import type { NavTab } from '../components/Sidebar';
 
@@ -58,6 +64,11 @@ interface BillingDraftSession {
   paymentMode: 'UPI' | 'Cash' | 'Card' | 'Credit';
   invoiceNotes: string;
   viewMode: 'catalog' | 'bill';
+  isEmiEnabled?: boolean;
+  emiDownPayment?: number | '';
+  emiInterestRate?: number | '';
+  emiTenureMonths?: number;
+  emiServiceCharge?: number | '';
   savedAt: number;
 }
 
@@ -177,6 +188,40 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   });
   const [showExtraCustomerFields, setShowExtraCustomerFields] = useState(false);
 
+  // Customer searchable picker state (Name or Phone number live filter)
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const customerDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close customer dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        customerDropdownRef.current &&
+        !customerDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsCustomerDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filter / Shortlist registered customers by customer name OR mobile number
+  const filteredCustomerList = useMemo(() => {
+    const q = customerSearchQuery.trim().toLowerCase();
+    if (!q) return customerList;
+    const cleanQ = q.replace(/\D/g, '');
+    return customerList.filter((c) => {
+      const nameMatch = (c.name || '').toLowerCase().includes(q);
+      const phoneRaw = (c.phone || '').toLowerCase();
+      const phoneDigits = (c.phone || '').replace(/\D/g, '');
+      const phoneMatch =
+        phoneRaw.includes(q) || (cleanQ.length > 0 && phoneDigits.includes(cleanQ));
+      return nameMatch || phoneMatch;
+    });
+  }, [customerList, customerSearchQuery]);
+
   useEffect(() => {
     api
       .getCustomers()
@@ -211,6 +256,25 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   });
   const [submitting, setSubmitting] = useState(false);
 
+  // Credit & Phone EMI Installment state (Active specifically when paymentMode === 'Credit')
+  const [isEmiEnabled, setIsEmiEnabled] = useState<boolean>(() => {
+    return typeof initialDraft.isEmiEnabled === 'boolean' ? initialDraft.isEmiEnabled : true;
+  });
+  const [emiDownPayment, setEmiDownPayment] = useState<number | ''>(() => {
+    return initialDraft.emiDownPayment !== undefined ? initialDraft.emiDownPayment : '';
+  });
+  const [emiInterestRate, setEmiInterestRate] = useState<number | ''>(() => {
+    return initialDraft.emiInterestRate !== undefined ? initialDraft.emiInterestRate : 5;
+  });
+  const [emiTenureMonths, setEmiTenureMonths] = useState<number>(() => {
+    return typeof initialDraft.emiTenureMonths === 'number' ? initialDraft.emiTenureMonths : 6;
+  });
+  const [emiServiceCharge, setEmiServiceCharge] = useState<number | ''>(() => {
+    return initialDraft.emiServiceCharge !== undefined ? initialDraft.emiServiceCharge : '';
+  });
+  const [customTenureInput, setCustomTenureInput] = useState<string>('');
+  const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
+
   // Persist Billing Session across page refreshes, tab switching, and browser restart
   useEffect(() => {
     try {
@@ -222,6 +286,11 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         paymentMode,
         invoiceNotes,
         viewMode,
+        isEmiEnabled,
+        emiDownPayment,
+        emiInterestRate,
+        emiTenureMonths,
+        emiServiceCharge,
         savedAt: Date.now(),
       };
       localStorage.setItem(BILLING_SESSION_STORAGE_KEY, JSON.stringify(sessionData));
@@ -236,6 +305,11 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     paymentMode,
     invoiceNotes,
     viewMode,
+    isEmiEnabled,
+    emiDownPayment,
+    emiInterestRate,
+    emiTenureMonths,
+    emiServiceCharge,
   ]);
 
   // Synchronize across multiple browser tabs automatically
@@ -454,6 +528,79 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const cgst = Number((totalTax / 2).toFixed(2));
   const sgst = Number((totalTax / 2).toFixed(2));
 
+  // Detect primary phone / mobile item in cart to customize EMI model & recommended tenure
+  const primaryPhoneItem = useMemo(() => {
+    return (
+      cartItems.find(
+        (it) =>
+          it.imei ||
+          (it.model && it.model.trim()) ||
+          /phone|galaxy|redmi|realme|vivo|oppo|oneplus|apple|iphone|iqoo|motorola|nord|pixel/i.test(it.name)
+      ) || cartItems[0]
+    );
+  }, [cartItems]);
+
+  const detectedModelName = primaryPhoneItem?.model || primaryPhoneItem?.name || 'Mobile Phone';
+
+  // Smart tenure recommendation when cart phone changes
+  useEffect(() => {
+    if (primaryPhoneItem?.unitPrice && initialDraft.emiTenureMonths === undefined) {
+      const p = primaryPhoneItem.unitPrice;
+      if (p >= 45000) {
+        setEmiTenureMonths(12);
+      } else if (p >= 15000) {
+        setEmiTenureMonths(6);
+      } else {
+        setEmiTenureMonths(3);
+      }
+    }
+  }, [primaryPhoneItem?.name, primaryPhoneItem?.unitPrice]);
+
+  // EMI Financial Calculations (Active strictly when paymentMode === 'Credit' && isEmiEnabled)
+  const isCreditEmi = paymentMode === 'Credit' && isEmiEnabled;
+  const downPaymentNum = isCreditEmi
+    ? Math.min(netPayable, Math.max(0, typeof emiDownPayment === 'number' ? emiDownPayment : Number(emiDownPayment) || 0))
+    : 0;
+  const principalDue = Math.max(0, netPayable - downPaymentNum);
+  const interestRateNum = isCreditEmi
+    ? Math.max(0, typeof emiInterestRate === 'number' ? emiInterestRate : Number(emiInterestRate) || 0)
+    : 0;
+  const interestAmount = Number(((principalDue * interestRateNum) / 100).toFixed(2));
+  const serviceChargeNum = isCreditEmi
+    ? Math.max(0, typeof emiServiceCharge === 'number' ? emiServiceCharge : Number(emiServiceCharge) || 0)
+    : 0;
+  const totalFinancedAmount = Number((principalDue + interestAmount + serviceChargeNum).toFixed(2));
+  const tenureMonthsNum = Math.max(1, emiTenureMonths || 6);
+  const monthlyEmi = Number((totalFinancedAmount / tenureMonthsNum).toFixed(2));
+
+  // Auto compute first due date (30 days from today)
+  const firstDueDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().slice(0, 10);
+  }, []);
+
+  // Compute monthly EMI installment schedule
+  const emiSchedule = useMemo(() => {
+    const schedule = [];
+    const baseDate = new Date();
+    for (let i = 1; i <= tenureMonthsNum; i++) {
+      const dueDateObj = new Date(baseDate);
+      dueDateObj.setMonth(dueDateObj.getMonth() + i);
+      schedule.push({
+        installmentNo: i,
+        dueDate: dueDateObj.toISOString().slice(0, 10),
+        amount: monthlyEmi,
+        status: 'PENDING' as const,
+      });
+    }
+    return schedule;
+  }, [tenureMonthsNum, monthlyEmi]);
+
+  const finalGrandTotal = isCreditEmi ? netPayable + interestAmount + serviceChargeNum : netPayable;
+  const finalPaidAmount = isCreditEmi ? downPaymentNum : paymentMode === 'Credit' ? 0 : netPayable;
+  const finalBalanceDue = isCreditEmi ? totalFinancedAmount : paymentMode === 'Credit' ? netPayable : 0;
+
   // Generate & Print Invoice
   const handleGenerateInvoice = async () => {
     if (cartItems.length === 0) {
@@ -476,6 +623,23 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
     setSubmitting(true);
     try {
+      const emiPayload: EmiDetails | undefined = isCreditEmi
+        ? {
+            isEmi: true,
+            modelName: detectedModelName,
+            downPayment: downPaymentNum,
+            principalAmount: principalDue,
+            interestRate: interestRateNum,
+            interestAmount,
+            tenureMonths: tenureMonthsNum,
+            serviceCharge: serviceChargeNum,
+            monthlyEmi,
+            totalFinancedAmount,
+            firstDueDate,
+            emiSchedule,
+          }
+        : undefined;
+
       const billData = {
         customer: {
           id: selectedCustomer?.id || '',
@@ -499,9 +663,16 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         })),
         paymentMode,
         tenderMode: paymentMode,
-        paidAmount: paymentMode === 'Credit' ? 0 : netPayable,
-        balanceDue: paymentMode === 'Credit' ? netPayable : 0,
-        notes: discount > 0 ? `${discountLabel}: -₹${discount}` : invoiceNotes,
+        paidAmount: finalPaidAmount,
+        balanceDue: finalBalanceDue,
+        dueDate: isCreditEmi ? firstDueDate : '',
+        status: finalBalanceDue > 0 ? 'PARTIAL' : 'PAID',
+        emiDetails: emiPayload,
+        notes: isCreditEmi
+          ? `Phone EMI (${detectedModelName}): ₹${downPaymentNum.toLocaleString('en-IN')} Initial Paid | ₹${principalDue.toLocaleString('en-IN')} Financed @ ${interestRateNum}% Int (${tenureMonthsNum}M @ ₹${monthlyEmi.toLocaleString('en-IN')}/mo)`
+          : discount > 0
+          ? `${discountLabel}: -₹${discount}`
+          : invoiceNotes,
       };
 
       const res = await api.createBill(billData);
@@ -547,13 +718,34 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         cgstTotal: cgst,
         sgstTotal: sgst,
         totalTax: totalTax,
-        grandTotal: netPayable,
+        grandTotal: finalGrandTotal,
         paymentMode,
         tenderMode: paymentMode,
-        status: paymentMode === 'Credit' ? 'PARTIAL' : 'PAID',
-        paidAmount: paymentMode === 'Credit' ? 0 : netPayable,
-        balanceDue: paymentMode === 'Credit' ? netPayable : 0,
-        notes: discount > 0 ? `${discountLabel}: -₹${discount}` : invoiceNotes,
+        status: finalBalanceDue > 0 ? 'PARTIAL' : 'PAID',
+        paidAmount: finalPaidAmount,
+        balanceDue: finalBalanceDue,
+        dueDate: isCreditEmi ? firstDueDate : '',
+        emiDetails: isCreditEmi
+          ? {
+              isEmi: true,
+              modelName: detectedModelName,
+              downPayment: downPaymentNum,
+              principalAmount: principalDue,
+              interestRate: interestRateNum,
+              interestAmount,
+              tenureMonths: tenureMonthsNum,
+              serviceCharge: serviceChargeNum,
+              monthlyEmi,
+              totalFinancedAmount,
+              firstDueDate,
+              emiSchedule,
+            }
+          : undefined,
+        notes: isCreditEmi
+          ? `Phone EMI (${detectedModelName}): ₹${downPaymentNum.toLocaleString('en-IN')} Initial Paid | ₹${principalDue.toLocaleString('en-IN')} Financed @ ${interestRateNum}% Int (${tenureMonthsNum}M @ ₹${monthlyEmi.toLocaleString('en-IN')}/mo)`
+          : discount > 0
+          ? `${discountLabel}: -₹${discount}`
+          : invoiceNotes,
       };
       localStorage.removeItem(BILLING_SESSION_STORAGE_KEY);
       onInvoiceCreated(localBill);
@@ -585,6 +777,98 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     });
     return ['All', ...Array.from(set)];
   }, [liveProducts]);
+
+  // EMI Repayment Schedule Preview Modal (shared across VIEW 1 New Bill & VIEW 2 Catalog)
+  const renderEmiScheduleModal = () => {
+    if (!showScheduleModal) return null;
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-amber-50/70">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900">
+                  EMI Repayment Schedule ({tenureMonthsNum} Months)
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  {detectedModelName} • ₹{monthlyEmi.toLocaleString('en-IN')}/month
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowScheduleModal(false)}
+              className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="p-4 bg-slate-50 border-b border-slate-100 grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="bg-white p-2 rounded-lg border border-slate-200">
+              <span className="text-[10px] text-slate-400 block font-semibold">Total Financed</span>
+              <span className="font-black text-slate-900 font-mono">₹{totalFinancedAmount.toLocaleString('en-IN')}</span>
+            </div>
+            <div className="bg-white p-2 rounded-lg border border-slate-200">
+              <span className="text-[10px] text-slate-400 block font-semibold">Monthly EMI</span>
+              <span className="font-black text-blue-700 font-mono">₹{monthlyEmi.toLocaleString('en-IN')}</span>
+            </div>
+            <div className="bg-white p-2 rounded-lg border border-slate-200">
+              <span className="text-[10px] text-slate-400 block font-semibold">Interest Rate</span>
+              <span className="font-black text-amber-700 font-mono">{interestRateNum}% Flat</span>
+            </div>
+          </div>
+
+          <div className="p-4 overflow-y-auto space-y-2 flex-1 text-xs">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase">
+                  <th className="pb-2 text-center w-12">#</th>
+                  <th className="pb-2">Due Date</th>
+                  <th className="pb-2 text-right">Installment Amount</th>
+                  <th className="pb-2 text-center w-24">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {emiSchedule.map((item: EmiScheduleItem) => (
+                  <tr key={item.installmentNo} className="hover:bg-slate-50/70">
+                    <td className="py-2.5 text-center font-bold text-slate-700">
+                      M{item.installmentNo}
+                    </td>
+                    <td className="py-2.5 text-slate-800 font-medium">
+                      {item.dueDate}
+                    </td>
+                    <td className="py-2.5 text-right font-mono font-bold text-slate-900">
+                      ₹{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-2.5 text-center">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                        Pending
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="p-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between text-xs">
+            <span className="text-slate-500 text-[11px]">Installments collected via Customers Ledger</span>
+            <button
+              type="button"
+              onClick={() => setShowScheduleModal(false)}
+              className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl cursor-pointer"
+            >
+              Close Schedule
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
 
   // =========================================================================
@@ -639,6 +923,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                   setCartItems([]);
                   setDiscount(0);
                   setSelectedCustomer({ name: '', phone: '', email: '', address: '', gstin: '', tier: 'REGULAR' });
+                  setCustomerSearchQuery('');
                   setTimeout(() => billScanInputRef.current?.focus(), 50);
                 }
               }}
@@ -690,27 +975,169 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               </div>
             </div>
 
-            {/* Quick Actions */}
+            {/* Quick Actions & Searchable Customer Combobox */}
             <div className="flex items-center gap-2 flex-wrap">
-              {customerList.length > 0 && (
-                <div className="relative">
-                  <select
-                    value={selectedCustomer.name && customerList.some((c) => c.name === selectedCustomer.name) ? selectedCustomer.name : ''}
+              {/* Interactive Search / Pick Customer Combobox */}
+              <div className="relative" ref={customerDropdownRef}>
+                <div className="relative flex items-center">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={customerSearchQuery}
                     onChange={(e) => {
-                      const match = customerList.find((c) => c.name === e.target.value);
-                      if (match) setSelectedCustomer(match);
+                      setCustomerSearchQuery(e.target.value);
+                      setIsCustomerDropdownOpen(true);
                     }}
-                    className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-blue-500 cursor-pointer"
-                  >
-                    <option value="">Search / Pick Registered Customer...</option>
-                    {customerList.map((c) => (
-                      <option key={c.id || c.phone || c.name} value={c.name}>
-                        {c.name} — {c.phone} {c.khataBalance ? `(Due: ₹${c.khataBalance})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    onFocus={() => setIsCustomerDropdownOpen(true)}
+                    placeholder={
+                      selectedCustomer.name
+                        ? `${selectedCustomer.name} (${selectedCustomer.phone || 'No phone'})`
+                        : 'Search / Pick customer (Name or Mobile)...'
+                    }
+                    className={`w-64 sm:w-80 pl-8.5 pr-8 py-2 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border rounded-xl text-xs font-semibold text-slate-800 transition-all shadow-2xs ${
+                      isCustomerDropdownOpen
+                        ? 'border-blue-500 ring-2 ring-blue-500/20 bg-white'
+                        : selectedCustomer.name && (selectedCustomer.id || customerList.some((c) => c.phone === selectedCustomer.phone && selectedCustomer.phone))
+                        ? 'border-emerald-300 bg-emerald-50/40 text-emerald-900'
+                        : 'border-slate-200'
+                    }`}
+                  />
+                  {customerSearchQuery ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCustomerSearchQuery('');
+                      }}
+                      className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200/60 cursor-pointer"
+                      title="Clear search"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomerDropdownOpen((prev) => !prev)}
+                      className="absolute right-2 p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      title="Toggle customer list"
+                    >
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform duration-150 ${
+                          isCustomerDropdownOpen ? 'rotate-180 text-blue-600' : ''
+                        }`}
+                      />
+                    </button>
+                  )}
                 </div>
-              )}
+
+                {/* Dropdown Menu - Shortlisted by Name or Phone */}
+                {isCustomerDropdownOpen && (
+                  <div className="absolute right-0 sm:right-auto sm:left-0 mt-1.5 w-80 sm:w-96 max-h-80 overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100">
+                    <div className="p-3 bg-slate-50/90 sticky top-0 z-10 border-b border-slate-100 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-blue-600" />
+                        <span className="font-bold text-slate-700">
+                          {customerSearchQuery
+                            ? `Shortlisted Customers (${filteredCustomerList.length})`
+                            : `All Registered Customers (${customerList.length})`}
+                        </span>
+                      </div>
+                      {customerSearchQuery && (
+                        <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200/60">
+                          "{customerSearchQuery}"
+                        </span>
+                      )}
+                    </div>
+
+                    {filteredCustomerList.length > 0 ? (
+                      <div className="divide-y divide-slate-100">
+                        {filteredCustomerList.map((c) => {
+                          const isSelected =
+                            (selectedCustomer.id && c.id && selectedCustomer.id === c.id) ||
+                            (selectedCustomer.phone && c.phone && selectedCustomer.phone === c.phone) ||
+                            (selectedCustomer.name && c.name && selectedCustomer.name.toLowerCase() === c.name.toLowerCase());
+                          return (
+                            <button
+                              key={c.id || c.phone || c.name}
+                              type="button"
+                              onClick={() => {
+                                setSelectedCustomer(c);
+                                setCustomerSearchQuery('');
+                                setIsCustomerDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-3.5 py-2.5 flex items-center justify-between gap-3 transition-colors cursor-pointer ${
+                                isSelected ? 'bg-blue-50/90 text-blue-900 font-medium' : 'hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-xs text-slate-900 truncate">
+                                    {c.name}
+                                  </span>
+                                  {c.tier && (
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-slate-100 text-slate-600">
+                                      {c.tier}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 font-mono">
+                                  <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                                  <span>{c.phone || 'No phone'}</span>
+                                  {c.address && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="truncate max-w-[120px] text-slate-400">{c.address}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="text-right shrink-0">
+                                {typeof c.khataBalance === 'number' && c.khataBalance > 0 ? (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 block font-mono">
+                                    Due: ₹{c.khataBalance.toLocaleString('en-IN')}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-medium text-emerald-600 block">
+                                    No Due
+                                  </span>
+                                )}
+                                {isSelected && (
+                                  <span className="text-[10px] font-bold text-blue-600 flex items-center justify-end gap-1 mt-0.5">
+                                    <Check className="w-3 h-3" /> Selected
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="p-4 text-center space-y-2">
+                        <p className="text-xs text-slate-600 font-medium">
+                          No registered customer matching <span className="font-bold text-slate-900">"{customerSearchQuery}"</span>
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          Type customer details directly in the fields below or click to register.
+                        </p>
+                        {onOpenAddCustomer && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomerDropdownOpen(false);
+                              onOpenAddCustomer();
+                            }}
+                            className="mt-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                          >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            <span>+ Register New Customer</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {onOpenAddCustomer && (
                 <button
@@ -727,7 +1154,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               {(selectedCustomer.name || selectedCustomer.phone) && (
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
                     setSelectedCustomer({
                       name: '',
                       phone: '',
@@ -735,8 +1162,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                       address: '',
                       gstin: '',
                       tier: 'REGULAR',
-                    })
-                  }
+                    });
+                    setCustomerSearchQuery('');
+                  }}
                   className="px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all cursor-pointer flex items-center gap-1"
                   title="Clear Customer Fields"
                 >
@@ -747,7 +1175,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             </div>
           </div>
 
-          {/* Customer Input Fields */}
+          {/* Customer Input Fields with Autocomplete Datalist */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="block text-[11px] font-bold text-slate-700 mb-1">
@@ -756,6 +1184,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               <div className="relative">
                 <input
                   type="text"
+                  list="registered-customer-names"
                   value={selectedCustomer.name}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -771,6 +1200,13 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                   placeholder="Enter customer name..."
                   className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
+                <datalist id="registered-customer-names">
+                  {customerList.map((c) => (
+                    <option key={`name-${c.id || c.phone || c.name}`} value={c.name}>
+                      {c.phone} {c.khataBalance ? `(Due: ₹${c.khataBalance})` : ''}
+                    </option>
+                  ))}
+                </datalist>
               </div>
             </div>
 
@@ -781,6 +1217,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               <div className="relative">
                 <input
                   type="tel"
+                  list="registered-customer-phones"
                   value={selectedCustomer.phone}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -794,6 +1231,13 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                   placeholder="e.g. 9840123456"
                   className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-mono font-semibold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
+                <datalist id="registered-customer-phones">
+                  {customerList.map((c) => (
+                    <option key={`phone-${c.id || c.phone || c.name}`} value={c.phone}>
+                      {c.name} {c.khataBalance ? `(Due: ₹${c.khataBalance})` : ''}
+                    </option>
+                  ))}
+                </datalist>
               </div>
             </div>
           </div>
@@ -1201,6 +1645,304 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               </div>
             </div>
 
+            {/* Credit / EMI Installment Option - ONLY visible when paymentMode === 'Credit' */}
+            {paymentMode === 'Credit' && (
+              <div className="p-4 bg-gradient-to-br from-amber-50/90 via-orange-50/40 to-amber-50/80 rounded-2xl border border-amber-200/90 shadow-2xs space-y-4 animate-in fade-in slide-in-from-top-2 duration-150">
+                {/* Header with EMI Toggle */}
+                <div className="flex items-start justify-between gap-3 pb-3 border-b border-amber-200/60">
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Smartphone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                          Phone EMI &amp; Credit Installment Option
+                        </h4>
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                          Credit Sale
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-0.5">
+                        Setup initial down payment, interest rate % and tenure months for <strong className="text-slate-900">{detectedModelName}</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  <label className="inline-flex items-center gap-2 cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={isEmiEnabled}
+                      onChange={(e) => setIsEmiEnabled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600 relative"></div>
+                    <span className="text-xs font-bold text-slate-800">
+                      {isEmiEnabled ? 'EMI Plan Active' : 'Full Due'}
+                    </span>
+                  </label>
+                </div>
+
+                {isEmiEnabled ? (
+                  <div className="space-y-3.5 pt-1">
+                    {/* Device Model Banner */}
+                    <div className="bg-white/90 border border-amber-200/70 rounded-xl px-3.5 py-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                        <span className="text-xs text-slate-600 font-medium">Billed Device:</span>
+                        <strong className="text-xs font-bold text-slate-900">{detectedModelName}</strong>
+                      </div>
+                      <span className="text-[10px] font-bold text-amber-700 bg-amber-100/70 px-2 py-0.5 rounded-md">
+                        Phone Value: ₹{netPayable.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    {/* Row 1: Initial Cost (Down Payment) & Interest Rate */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Initial Down Payment */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                            <span>Initial Down Payment (₹)</span>
+                            <span className="text-rose-600">*</span>
+                          </label>
+                          <span className="text-[10px] font-semibold text-emerald-700">
+                            Paid Today at Counter
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">
+                            ₹
+                          </span>
+                          <input
+                            type="number"
+                            min="0"
+                            max={netPayable}
+                            value={emiDownPayment === '' ? '' : emiDownPayment}
+                            onChange={(e) => {
+                              const val = e.target.value === '' ? '' : Number(e.target.value);
+                              setEmiDownPayment(val);
+                            }}
+                            placeholder="e.g. 7000"
+                            className="w-full pl-7 pr-3 py-2 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:outline-amber-600 bg-white"
+                          />
+                        </div>
+                        {/* Down payment presets */}
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setEmiDownPayment(0)}
+                            className="px-2 py-0.5 text-[10px] font-semibold text-slate-600 bg-white hover:bg-amber-100/50 border border-slate-200 rounded cursor-pointer"
+                          >
+                            ₹0 (Zero Down)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEmiDownPayment(Math.round(netPayable * 0.25))}
+                            className="px-2 py-0.5 text-[10px] font-semibold text-slate-600 bg-white hover:bg-amber-100/50 border border-slate-200 rounded cursor-pointer"
+                          >
+                            25% (₹{Math.round(netPayable * 0.25).toLocaleString('en-IN')})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEmiDownPayment(Math.round(netPayable * 0.3))}
+                            className="px-2 py-0.5 text-[10px] font-semibold text-slate-600 bg-white hover:bg-amber-100/50 border border-slate-200 rounded cursor-pointer"
+                          >
+                            30% (₹{Math.round(netPayable * 0.3).toLocaleString('en-IN')})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEmiDownPayment(Math.round(netPayable * 0.5))}
+                            className="px-2 py-0.5 text-[10px] font-semibold text-slate-600 bg-white hover:bg-amber-100/50 border border-slate-200 rounded cursor-pointer"
+                          >
+                            50%
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Interest Rate on Balance */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                            <span>Interest Rate (%)</span>
+                          </label>
+                          <span className="text-[10px] font-semibold text-amber-700">
+                            + ₹{interestAmount.toLocaleString('en-IN')} Interest
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={emiInterestRate === '' ? '' : emiInterestRate}
+                            onChange={(e) => {
+                              const val = e.target.value === '' ? '' : Number(e.target.value);
+                              setEmiInterestRate(val);
+                            }}
+                            placeholder="e.g. 5"
+                            className="w-full px-3 py-2 pr-7 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:outline-amber-600 bg-white"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">
+                            %
+                          </span>
+                        </div>
+                        {/* Interest presets */}
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          {[0, 2, 3, 5, 8, 10].map((rate) => (
+                            <button
+                              key={rate}
+                              type="button"
+                              onClick={() => setEmiInterestRate(rate)}
+                              className={`px-2 py-0.5 text-[10px] font-bold rounded border cursor-pointer ${
+                                emiInterestRate === rate
+                                  ? 'bg-amber-600 text-white border-amber-600'
+                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-amber-100/50'
+                              }`}
+                            >
+                              {rate === 0 ? '0% Int' : `${rate}%`}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Row 2: Installment Duration (Tenure Months) & Optional Service Charges */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {/* Installment Months */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-800 mb-1">
+                          Installment Duration (Tenure)
+                        </label>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {[3, 6, 9, 10, 12, 18, 24].map((m) => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => {
+                                setEmiTenureMonths(m);
+                                setCustomTenureInput('');
+                              }}
+                              className={`px-2.5 py-1 text-xs font-bold rounded-lg border cursor-pointer transition-all ${
+                                emiTenureMonths === m && !customTenureInput
+                                  ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                              }`}
+                            >
+                              {m}M
+                            </button>
+                          ))}
+                          <div className="inline-flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="1"
+                              max="60"
+                              placeholder="Other"
+                              value={customTenureInput}
+                              onChange={(e) => {
+                                setCustomTenureInput(e.target.value);
+                                const num = parseInt(e.target.value, 10);
+                                if (num > 0) setEmiTenureMonths(num);
+                              }}
+                              className="w-14 px-2 py-1 border border-slate-300 rounded-lg text-xs font-bold text-center bg-white focus:outline-blue-600"
+                            />
+                            <span className="text-[10px] text-slate-500 font-semibold">Mo</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Optional Service / Processing Charge */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-bold text-slate-800">
+                            Service / File Fee (Optional ₹)
+                          </label>
+                          <span className="text-[10px] text-slate-500">Documentation</span>
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">
+                            ₹
+                          </span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={emiServiceCharge === '' ? '' : emiServiceCharge}
+                            onChange={(e) => {
+                              const val = e.target.value === '' ? '' : Number(e.target.value);
+                              setEmiServiceCharge(val);
+                            }}
+                            placeholder="0 (Free)"
+                            className="w-full pl-7 pr-3 py-2 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:outline-amber-600 bg-white"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          {[0, 250, 500, 999].map((fee) => (
+                            <button
+                              key={fee}
+                              type="button"
+                              onClick={() => setEmiServiceCharge(fee === 0 ? '' : fee)}
+                              className="px-2 py-0.5 text-[10px] font-semibold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 rounded cursor-pointer"
+                            >
+                              {fee === 0 ? '₹0' : `₹${fee}`}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Live EMI Calculation Summary Card */}
+                    <div className="bg-white rounded-xl p-3 border border-amber-200 shadow-2xs space-y-2.5">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center divide-x divide-slate-100">
+                        <div className="p-1">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">Down Payment</p>
+                          <p className="text-xs sm:text-sm font-extrabold text-emerald-700 font-mono mt-0.5">
+                            ₹{downPaymentNum.toLocaleString('en-IN')}
+                          </p>
+                        </div>
+                        <div className="p-1">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">Principal Financed</p>
+                          <p className="text-xs sm:text-sm font-extrabold text-slate-800 font-mono mt-0.5">
+                            ₹{principalDue.toLocaleString('en-IN')}
+                          </p>
+                        </div>
+                        <div className="p-1">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">Interest + Fee</p>
+                          <p className="text-xs sm:text-sm font-extrabold text-amber-700 font-mono mt-0.5">
+                            +₹{(interestAmount + serviceChargeNum).toLocaleString('en-IN')}
+                          </p>
+                        </div>
+                        <div className="p-1 bg-amber-50/60 rounded-lg">
+                          <p className="text-[10px] font-black text-amber-800 uppercase tracking-tight">Monthly EMI</p>
+                          <p className="text-sm sm:text-base font-black text-blue-700 font-mono">
+                            ₹{monthlyEmi.toLocaleString('en-IN')}<span className="text-[10px] font-normal text-slate-500">/mo</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                        <div className="flex items-center gap-1.5 text-slate-600 text-[11px]">
+                          <Clock className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Tenure: <strong>{tenureMonthsNum} Months</strong> • 1st Due: <strong>{firstDueDate}</strong></span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowScheduleModal(true)}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                        >
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>View {tenureMonthsNum}-Month Schedule</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-2 text-xs text-amber-800 bg-amber-100/50 rounded-lg">
+                    Full amount ₹{netPayable.toLocaleString('en-IN')} will be recorded as standard lump-sum Khata Credit Due without monthly EMI breakdown.
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
@@ -1279,16 +2021,50 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                 </div>
               )}
 
+              {/* If Credit with EMI active, display EMI breakdown items */}
+              {isCreditEmi && (
+                <div className="border-t border-dashed border-amber-200 pt-2 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between text-emerald-700 font-semibold">
+                    <span>Initial Down Payment (Paid Today)</span>
+                    <span className="font-mono">-₹{downPaymentNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-700">
+                    <span>Principal Balance Due</span>
+                    <span className="font-mono">₹{principalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  {interestRateNum > 0 && (
+                    <div className="flex items-center justify-between text-amber-800">
+                      <span>Interest ({interestRateNum}%)</span>
+                      <span className="font-mono">+₹{interestAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
+                  {serviceChargeNum > 0 && (
+                    <div className="flex items-center justify-between text-amber-800">
+                      <span>Service / Documentation Fee</span>
+                      <span className="font-mono">+₹{serviceChargeNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between font-bold text-blue-700 bg-blue-50/70 p-1.5 rounded-lg border border-blue-100">
+                    <span>Monthly EMI ({tenureMonthsNum} Months)</span>
+                    <span className="font-mono">₹{monthlyEmi.toLocaleString('en-IN', { minimumFractionDigits: 2 })} / mo</span>
+                  </div>
+                </div>
+              )}
+
               <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                    Grand Total
+                    {isCreditEmi ? 'Total Customer Cost' : 'Grand Total'}
                   </p>
-                  <p className="text-[10px] text-slate-400">Inclusive of all taxes</p>
+                  <p className="text-[10px] text-slate-400">
+                    {isCreditEmi
+                      ? `₹${downPaymentNum.toLocaleString('en-IN')} initial + ₹${totalFinancedAmount.toLocaleString('en-IN')} financed`
+                      : 'Inclusive of all taxes'}
+                  </p>
                 </div>
                 <div className="text-right">
                   <span className="text-2xl sm:text-3xl font-black text-blue-600 font-sans tracking-tight">
-                    ₹{netPayable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    ₹{finalGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>
@@ -1300,10 +2076,16 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                 type="button"
                 onClick={handleGenerateInvoice}
                 disabled={submitting || cartItems.length === 0}
-                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 text-sm"
+                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 text-xs sm:text-sm"
               >
                 <Printer className="w-4 h-4" />
-                <span>{submitting ? 'Generating Invoice...' : 'Generate & Print Tax Invoice'}</span>
+                <span>
+                  {submitting
+                    ? 'Generating Invoice...'
+                    : isCreditEmi
+                    ? `Create EMI Invoice (₹${downPaymentNum.toLocaleString('en-IN')} Paid + ₹${totalFinancedAmount.toLocaleString('en-IN')} Due)`
+                    : 'Generate & Print Tax Invoice'}
+                </span>
               </button>
             </div>
           </div>
@@ -1361,6 +2143,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             </div>
           </div>
         )}
+
+        {/* EMI Repayment Schedule Preview Modal */}
+        {renderEmiScheduleModal()}
       </div>
     );
   }
@@ -1694,6 +2479,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           </div>
         </div>
       )}
+
+      {/* EMI Repayment Schedule Preview Modal */}
+      {renderEmiScheduleModal()}
     </div>
   );
 };

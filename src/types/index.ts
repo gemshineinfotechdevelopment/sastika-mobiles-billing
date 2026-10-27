@@ -79,6 +79,28 @@ export interface BillItem {
   total: number;
 }
 
+export interface EmiScheduleItem {
+  installmentNo: number;
+  dueDate: string;
+  amount: number;
+  status: 'PENDING' | 'PAID';
+}
+
+export interface EmiDetails {
+  isEmi: boolean;
+  modelName?: string;
+  downPayment: number;
+  principalAmount: number;
+  interestRate: number; // In %
+  interestAmount: number;
+  tenureMonths: number;
+  serviceCharge?: number;
+  monthlyEmi: number;
+  totalFinancedAmount: number;
+  firstDueDate?: string;
+  emiSchedule?: EmiScheduleItem[];
+}
+
 export interface Bill {
   id: string;
   invoiceNumber: string;
@@ -107,6 +129,7 @@ export interface Bill {
   voidReason?: string;
   warningNote?: string;
   stockRestoredText?: string;
+  emiDetails?: EmiDetails;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -296,6 +296,7 @@ router.post('/', async (req, res) => {
       notes = '',
       customerType = 'REGULAR',
       counter = 'Terminal 01',
+      emiDetails,
     } = req.body;
 
     if (!items || !items.length) {
@@ -404,6 +405,7 @@ router.post('/', async (req, res) => {
       status: billStatus,
       notes,
       counter,
+      emiDetails: emiDetails?.isEmi ? emiDetails : { isEmi: false },
       itemSummary: itemNames.slice(0, 2).join(' + ') + (itemNames.length > 2 ? ` (+${itemNames.length - 2} more)` : ''),
       subSummary: items[0]?.imei ? `IMEI: ${items[0].imei} (1 Yr Mfr Warranty)` : `${processedItems.length} Products billed`,
     });
@@ -462,15 +464,19 @@ router.post('/', async (req, res) => {
         if (calculatedDue > 0) {
           custRecord.khataBalance = (custRecord.khataBalance || 0) + calculatedDue;
           custRecord.khataStatus = 'pending';
-          custRecord.dueText = `Due since ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`;
+          custRecord.dueText = emiDetails?.isEmi
+            ? `EMI: ₹${Number(emiDetails.monthlyEmi || 0).toLocaleString('en-IN')}/mo (${emiDetails.tenureMonths}M)`
+            : `Due since ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`;
 
           custRecord.ledger.push({
             date: new Date().toISOString().slice(0, 10),
             billNumber: invoiceNumber,
             type: 'INVOICE',
             amount: calculatedDue,
-            paymentMode,
-            notes: `Bill credit for ${invoiceNumber}`,
+            paymentMode: emiDetails?.isEmi ? 'Credit (EMI)' : paymentMode,
+            notes: emiDetails?.isEmi
+              ? `Phone EMI for ${emiDetails.modelName || invoiceNumber} - ₹${emiDetails.downPayment} Initial Paid, ₹${calculatedDue} Financed (${emiDetails.tenureMonths}M @ ₹${emiDetails.monthlyEmi}/mo)`
+              : `Bill credit for ${invoiceNumber}`,
             balanceAfter: custRecord.khataBalance,
           });
         }

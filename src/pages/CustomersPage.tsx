@@ -8,6 +8,7 @@ import {
   Phone,
   RefreshCw,
   Loader2,
+  CheckCircle2,
 } from 'lucide-react';
 import type { Customer } from '../types';
 import { CollectPaymentModal } from '../components/modals/CollectPaymentModal';
@@ -34,6 +35,12 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   // Modals state
   const [selectedCustomerForLedger, setSelectedCustomerForLedger] = useState<Customer | null>(null);
   const [selectedCustomerForPayment, setSelectedCustomerForPayment] = useState<Customer | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -101,22 +108,44 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
   const handlePaymentCollectedSuccess = (
     customerId: string,
     amount: number,
-    _notes?: string
+    updatedCustomer?: Customer
   ) => {
-    setCustomers((prev) =>
-      prev.map((c) => {
-        if (c.id === customerId) {
-          const updatedBal = Math.max(0, (c.khataBalance || 0) - amount);
-          return {
-            ...c,
-            khataBalance: updatedBal,
-            khataStatus: updatedBal === 0 ? 'settled' : 'pending',
-          };
-        }
-        return c;
-      })
-    );
+    if (updatedCustomer) {
+      setCustomers((prev) =>
+        prev.map((c) =>
+          c.id === customerId || (c as any)._id === customerId || (updatedCustomer.phone && c.phone === updatedCustomer.phone)
+            ? { ...c, ...updatedCustomer }
+            : c
+        )
+      );
+      if (
+        selectedCustomerForLedger &&
+        (selectedCustomerForLedger.id === customerId ||
+          (selectedCustomerForLedger as any)._id === customerId ||
+          (updatedCustomer.phone && selectedCustomerForLedger.phone === updatedCustomer.phone))
+      ) {
+        setSelectedCustomerForLedger(updatedCustomer);
+      }
+    } else {
+      setCustomers((prev) =>
+        prev.map((c) => {
+          if (c.id === customerId || (c as any)._id === customerId) {
+            const updatedBal = Math.max(0, (c.khataBalance || 0) - amount);
+            return {
+              ...c,
+              khataBalance: updatedBal,
+              khataStatus: updatedBal === 0 ? 'settled' : 'pending',
+              dueText: updatedBal === 0 ? 'Settled' : `Due: ₹${updatedBal.toLocaleString('en-IN')}`,
+            };
+          }
+          return c;
+        })
+      );
+    }
     setSelectedCustomerForPayment(null);
+    showToast(`Payment of ₹${amount.toLocaleString('en-IN')} collected & ledger updated in database!`);
+    // Refresh live customers from database to sync all metrics
+    fetchCustomers();
   };
 
   return (
@@ -423,7 +452,25 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
         isOpen={Boolean(selectedCustomerForLedger)}
         customer={selectedCustomerForLedger}
         onClose={() => setSelectedCustomerForLedger(null)}
+        onCollectPayment={(cust) => {
+          setSelectedCustomerForLedger(null);
+          setSelectedCustomerForPayment(cust);
+        }}
       />
+
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 text-xs font-medium border border-slate-700 animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+          <button
+            onClick={() => setToastMessage(null)}
+            className="ml-2 text-slate-400 hover:text-white"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

@@ -120,8 +120,8 @@ export const api = {
   async collectCustomerPayment(
     customerId: string,
     data: { amount: number; paymentMode?: string; notes?: string; billNumber?: string }
-  ): Promise<{ success: boolean; newBalance: number; customer: Customer }> {
-    const res = await fetch(`${API_BASE}/customers/${customerId}/collect-payment`, {
+  ): Promise<{ success: boolean; newBalance: number; customer: Customer; receiptNumber?: string; message?: string }> {
+    const res = await fetch(`${API_BASE}/customers/${encodeURIComponent(customerId)}/collect-payment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),

@@ -268,6 +268,19 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                     <span className="font-mono">₹{bill.balanceDue?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
                 )}
+                {bill.emiDetails?.isEmi && (
+                  <div className="pt-1 text-[8.5px] border-t border-dotted border-slate-700 space-y-0.5 text-slate-800">
+                    <div className="font-bold uppercase text-[9px]">★ PHONE EMI ({bill.emiDetails.tenureMonths}M) ★</div>
+                    <div className="flex justify-between">
+                      <span>Down Payment:</span>
+                      <span className="font-mono">₹{bill.emiDetails.downPayment.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-slate-950">
+                      <span>Monthly EMI:</span>
+                      <span className="font-mono">₹{bill.emiDetails.monthlyEmi.toLocaleString('en-IN')}/mo</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Barcode & Footer */}
@@ -403,6 +416,49 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                     <span className="font-mono">₹{bill.balanceDue?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
                 )}
+                {bill.emiDetails?.isEmi && (
+                  <div className="pt-2 mt-1.5 border-t border-dashed border-slate-900 space-y-1 text-[10.5px]">
+                    <div className="font-black text-slate-950 uppercase text-[11px] text-center bg-slate-100 py-0.5 rounded">
+                      ★ IN-STORE PHONE EMI PLAN ({bill.emiDetails.tenureMonths} MONTHS) ★
+                    </div>
+                    {bill.emiDetails.modelName && (
+                      <div className="flex justify-between text-slate-700">
+                        <span>Device Financed:</span>
+                        <strong className="text-slate-900">{bill.emiDetails.modelName}</strong>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-slate-700">
+                      <span>Initial Down Payment:</span>
+                      <span className="font-mono font-bold text-emerald-800">₹{bill.emiDetails.downPayment.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-700">
+                      <span>Principal Balance:</span>
+                      <span className="font-mono">₹{bill.emiDetails.principalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    {bill.emiDetails.interestRate > 0 && (
+                      <div className="flex justify-between text-slate-700">
+                        <span>Interest ({bill.emiDetails.interestRate}%):</span>
+                        <span className="font-mono">+₹{bill.emiDetails.interestAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    {(bill.emiDetails.serviceCharge || 0) > 0 && (
+                      <div className="flex justify-between text-slate-700">
+                        <span>Processing Fee:</span>
+                        <span className="font-mono">+₹{bill.emiDetails.serviceCharge?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-[11.5px] font-black text-slate-950 pt-1 border-t border-dotted border-slate-400">
+                      <span>Monthly Installment (EMI):</span>
+                      <span className="font-mono font-black text-slate-950">₹{bill.emiDetails.monthlyEmi.toLocaleString('en-IN', { minimumFractionDigits: 2 })} / Mo</span>
+                    </div>
+                    {bill.emiDetails.firstDueDate && (
+                      <div className="flex justify-between text-[9.5px] text-slate-600">
+                        <span>1st Installment Due Date:</span>
+                        <span className="font-bold">{bill.emiDetails.firstDueDate}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Barcode Graphic & Footer */}
@@ -519,9 +575,59 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                 </table>
               </div>
 
-              {/* Totals Table Summary */}
-              <div className="flex justify-end mt-2">
-                <table className="w-80 text-xs border border-slate-900 border-collapse print-table">
+              {/* Totals & EMI Financing Summary */}
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mt-2">
+                {/* Left: EMI Financing Schedule Box (if active) */}
+                {bill.emiDetails?.isEmi ? (
+                  <div className="flex-1 w-full border border-slate-900 rounded-lg p-3 text-xs bg-amber-50/20 space-y-2">
+                    <div className="flex items-center justify-between border-b border-slate-900 pb-1.5">
+                      <span className="font-black uppercase text-[11px] text-slate-900">
+                        ★ IN-STORE PHONE EMI PLAN ({bill.emiDetails.tenureMonths} MONTHS) ★
+                      </span>
+                      <span className="font-mono font-bold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded text-[10px]">
+                        ₹{bill.emiDetails.monthlyEmi.toLocaleString('en-IN', { minimumFractionDigits: 2 })} / Month
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div>
+                        <span className="text-slate-600 block">Financed Device:</span>
+                        <strong className="text-slate-900">{bill.emiDetails.modelName || 'Mobile Device'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-600 block">Initial Down Payment:</span>
+                        <strong className="font-mono text-emerald-700">₹{bill.emiDetails.downPayment.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Paid)</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-600 block">Principal Balance Financed:</span>
+                        <span className="font-mono font-semibold">₹{bill.emiDetails.principalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-600 block">Interest Rate ({bill.emiDetails.interestRate}%):</span>
+                        <span className="font-mono font-semibold">+₹{bill.emiDetails.interestAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      {(bill.emiDetails.serviceCharge || 0) > 0 && (
+                        <div>
+                          <span className="text-slate-600 block">Service / Processing Fee:</span>
+                          <span className="font-mono font-semibold">+₹{bill.emiDetails.serviceCharge?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-slate-600 block">First Installment Due Date:</span>
+                        <strong className="text-slate-900">{bill.emiDetails.firstDueDate || 'Within 30 Days'}</strong>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-500 pt-1 border-t border-dashed border-slate-300">
+                      Installments can be repaid via counter cash, UPI QR or Customer Ledger.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex-1" />
+                )}
+
+                {/* Right: Totals Table */}
+                <table className="w-80 shrink-0 text-xs border border-slate-900 border-collapse print-table">
                   <tbody>
                     <tr className="border-b border-slate-900">
                       <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">Total Units / Qty:</td>
