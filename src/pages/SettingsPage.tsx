@@ -7,7 +7,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { api } from '../services/api';
-import sastikaLogo from '../assets/sastika-logo.jpeg';
+import sastikaLogo from '../assets/sastika-logo1.jpeg';
 
 export const normalizePrinterType = (val: string | null | undefined): '3-inch Thermal (80mm)' | '2-inch Thermal (58mm)' | 'A4 Standard Laser' => {
   if (!val) return '3-inch Thermal (80mm)';

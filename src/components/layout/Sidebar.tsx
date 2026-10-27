@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react';
 
-import sastikaLogo from '../../assets/sastika-logo.jpeg';
+import sastikaLogo from '../../assets/sastika-logo1.jpeg';
 
 export type NavTab =
   | 'dashboard'

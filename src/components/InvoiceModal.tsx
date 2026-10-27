@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Printer, X, Receipt, FileText } from 'lucide-react';
 import type { Bill } from '../types';
 import { api } from '../services/api';
-import sastikaLogo from '../assets/sastika-logo.jpeg';
+import sastikaLogo from '../assets/sastika-logo1.jpeg';
 
 interface InvoiceModalProps {
   bill: Bill;
