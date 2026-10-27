@@ -9,16 +9,10 @@ import {
   Phone,
   Trash2,
   CheckCircle2,
-  AlertCircle,
   Truck,
-  RotateCcw,
   Save,
   ArrowLeft,
-  Smartphone,
-  Tag,
-  Hash,
   MapPin,
-  ShieldCheck,
   RefreshCw,
 } from 'lucide-react';
 import type { PurchaseBill, Supplier, Product } from '../types';
@@ -29,9 +23,9 @@ import { SettleSupplierPaymentModal } from '../components/modals/SettleSupplierP
 interface NewItemRow {
   name: string;
   category: string;
-  quantity: number;
-  unitCost: number;
-  gstRate: number;
+  quantity: number | '';
+  unitCost: number | '';
+  gstRate: number | string;
   imeis: string[];
 }
 
@@ -312,17 +306,23 @@ export const PurchasesPage: React.FC = () => {
         dueNotice: balanceDue > 0 ? `Payable due` : 'Settled',
         paymentStatus: balanceDue === 0 ? ('PAID FULL' as const) : numericPaid > 0 ? ('PARTIAL DUE' as const) : ('UNPAID' as const),
         stockSyncStatus,
-        items: validItems.map((it) => ({
-          name: it.name.trim(),
-          category: it.category,
-          quantity: Number(it.quantity) || 1,
-          unitCost: Number(it.unitCost) || 0,
-          gstRate: Number(it.gstRate) || 18,
-          taxableAmount: (Number(it.quantity) || 1) * (Number(it.unitCost) || 0),
-          totalAmount:
-            (Number(it.quantity) || 1) * (Number(it.unitCost) || 0) * (1 + (Number(it.gstRate) || 18) / 100),
-          imeiNumbers: it.imeis || [],
-        })),
+        items: validItems.map((it) => {
+          const qty = Number(it.quantity) || 1;
+          const cost = Number(it.unitCost) || 0;
+          const gst = it.gstRate === '' || isNaN(Number(it.gstRate)) ? 0 : Number(it.gstRate);
+          const taxable = qty * cost;
+          const total = taxable * (1 + gst / 100);
+          return {
+            name: it.name.trim(),
+            category: it.category,
+            quantity: qty,
+            unitCost: cost,
+            gstRate: gst,
+            taxableAmount: taxable,
+            totalAmount: total,
+            imeiNumbers: it.imeis || [],
+          };
+        }),
       };
 
       const res = await api.createPurchase(payload);
@@ -470,114 +470,141 @@ export const PurchasesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsNewSupplierMode(!isNewSupplierMode)}
-                className="text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer"
+                className="text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer px-2.5 py-1 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
               >
                 {isNewSupplierMode ? '← Choose Existing Supplier' : '+ Add New Supplier'}
               </button>
             </div>
 
+            {/* Invoice Number & Inward Date (Always visible) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+              <div className="lg:col-span-2">
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Supplier Invoice Number <span className="text-rose-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <FileText className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={invoiceNumber}
+                      onChange={(e) => setInvoiceNumber(e.target.value)}
+                      placeholder="e.g. INV-2026-891, BILL-402"
+                      className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setInvoiceNumber(`INV-${Date.now().toString().slice(-6)}`)}
+                    className="px-2.5 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-600 cursor-pointer whitespace-nowrap"
+                    title="Auto-generate a temporary invoice number"
+                  >
+                    Auto Gen
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Invoice / Inward Date <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={billDate}
+                  onChange={(e) => setBillDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Supplier Selection or New Supplier Registration */}
             {isNewSupplierMode ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/70">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Supplier Name <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newSupplierName}
-                    onChange={(e) => setNewSupplierName(e.target.value)}
-                    placeholder="e.g. Metro Mobile Wholesale"
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                    New Supplier Registration Details
+                  </span>
+                  <span className="text-[10px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-md">
+                    Will be registered in database upon saving
+                  </span>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Contact Phone</label>
-                  <input
-                    type="text"
-                    value={newSupplierPhone}
-                    onChange={(e) => setNewSupplierPhone(e.target.value)}
-                    placeholder="+91 98765 00000"
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Supplier GSTIN</label>
-                  <input
-                    type="text"
-                    value={newSupplierGstin}
-                    onChange={(e) => setNewSupplierGstin(e.target.value)}
-                    placeholder="33AAAAA0000A1Z5"
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono uppercase text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Address / Location</label>
-                  <input
-                    type="text"
-                    value={newSupplierAddress}
-                    onChange={(e) => setNewSupplierAddress(e.target.value)}
-                    placeholder="Wholesale Market, Chennai"
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-blue-50/30 p-3.5 rounded-xl border border-blue-100">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Supplier Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newSupplierName}
+                      onChange={(e) => setNewSupplierName(e.target.value)}
+                      placeholder="e.g. Metro Mobile Wholesale"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Contact Phone</label>
+                    <input
+                      type="text"
+                      value={newSupplierPhone}
+                      onChange={(e) => setNewSupplierPhone(e.target.value)}
+                      placeholder="+91 98765 00000"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Supplier GSTIN</label>
+                    <input
+                      type="text"
+                      value={newSupplierGstin}
+                      onChange={(e) => setNewSupplierGstin(e.target.value)}
+                      placeholder="33AAAAA0000A1Z5"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono uppercase text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Address / Location</label>
+                    <input
+                      type="text"
+                      value={newSupplierAddress}
+                      onChange={(e) => setNewSupplierAddress(e.target.value)}
+                      placeholder="Wholesale Market, Chennai"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Select Supplier from Database <span className="text-rose-500">*</span>
-                  </label>
-                  {suppliers.length === 0 ? (
-                    <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-                      <span>No suppliers found in database.</span>
-                      <button
-                        type="button"
-                        onClick={() => setIsNewSupplierMode(true)}
-                        className="font-bold underline cursor-pointer"
-                      >
-                        Create one now
-                      </button>
-                    </div>
-                  ) : (
-                    <select
-                      value={selectedSupplierId}
-                      onChange={(e) => setSelectedSupplierId(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500"
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Select Supplier from Database <span className="text-rose-500">*</span>
+                </label>
+                {suppliers.length === 0 ? (
+                  <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                    <span>No suppliers found in database.</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsNewSupplierMode(true)}
+                      className="font-bold underline cursor-pointer"
                     >
-                      {suppliers.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} {s.phone ? `(${s.phone})` : ''} - {s.address || 'Vendor'}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Supplier Invoice # <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={invoiceNumber}
-                    onChange={(e) => setInvoiceNumber(e.target.value)}
-                    placeholder="e.g. INV-2026-891"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Invoice / Inward Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={billDate}
-                    onChange={(e) => setBillDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
+                      + Register one now
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={selectedSupplierId}
+                    onChange={(e) => setSelectedSupplierId(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} {s.phone ? `(${s.phone})` : ''} - {s.address || 'Vendor'} {s.gstin ? `[GST: ${s.gstin}]` : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             )}
           </div>
@@ -667,7 +694,7 @@ export const PurchasesPage: React.FC = () => {
                             min="1"
                             required
                             value={item.quantity}
-                            onChange={(e) => handleItemFieldChange(idx, 'quantity', parseInt(e.target.value) || 1)}
+                            onChange={(e) => handleItemFieldChange(idx, 'quantity', e.target.value === '' ? '' : parseInt(e.target.value))}
                             className="w-full text-center px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-900"
                           />
                         </td>
@@ -678,22 +705,27 @@ export const PurchasesPage: React.FC = () => {
                             step="0.01"
                             required
                             value={item.unitCost}
-                            onChange={(e) => handleItemFieldChange(idx, 'unitCost', parseFloat(e.target.value) || 0)}
+                            onChange={(e) => handleItemFieldChange(idx, 'unitCost', e.target.value === '' ? '' : parseFloat(e.target.value))}
                             className="w-full text-right px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900"
                           />
                         </td>
                         <td className="py-2.5 px-3">
-                          <select
+                          <input
+                            type="text"
+                            inputMode="decimal"
                             value={item.gstRate}
-                            onChange={(e) => handleItemFieldChange(idx, 'gstRate', parseInt(e.target.value) || 18)}
-                            className="w-full text-center px-1.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold"
-                          >
-                            <option value="0">0%</option>
-                            <option value="5">5%</option>
-                            <option value="12">12%</option>
-                            <option value="18">18%</option>
-                            <option value="28">28%</option>
-                          </select>
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/[^0-9.]/g, '');
+                              handleItemFieldChange(idx, 'gstRate', val);
+                            }}
+                            placeholder="0"
+                            className="w-full text-center px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-1 focus:ring-blue-500"
+                          />
+                          {taxable > 0 && (Number(item.gstRate) || 0) > 0 && (
+                            <div className="text-[10px] text-center font-mono text-slate-500 mt-0.5">
+                              +₹{((taxable * (Number(item.gstRate) || 0)) / 100).toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}
+                            </div>
+                          )}
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono font-medium text-slate-700">
                           ₹{taxable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -896,7 +928,7 @@ export const PurchasesPage: React.FC = () => {
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     <th className="py-3 px-4">Supplier</th>
-                    <th className="py-3 px-4">Invoice #</th>
+                    <th className="py-3 px-4">Supplier Invoice #</th>
                     <th className="py-3 px-4">Items Summary</th>
                     <th className="py-3 px-4 text-right">Total Amount</th>
                     <th className="py-3 px-4 text-right">Balance Due</th>
@@ -904,7 +936,14 @@ export const PurchasesPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {paginatedBills.length === 0 ? (
+                  {loading ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-slate-400">
+                        <RefreshCw className="w-6 h-6 mx-auto mb-2 text-blue-500 animate-spin" />
+                        <p className="font-semibold text-slate-600">Loading purchase bills...</p>
+                      </td>
+                    </tr>
+                  ) : paginatedBills.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-12 text-center text-slate-400">
                         <Truck className="w-8 h-8 mx-auto mb-2 text-slate-300 opacity-60" />
@@ -1128,6 +1167,7 @@ export const PurchasesPage: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setSelectedSupplierId(s.id);
+                        setIsNewSupplierMode(false);
                         setActiveSubTab('new-entry');
                       }}
                       className="text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer"
