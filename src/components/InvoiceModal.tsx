@@ -283,19 +283,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                 )}
               </div>
 
-              {/* Barcode & Footer */}
+              {/* Footer */}
               <div className="text-center pt-1 text-[8.5px] text-slate-700 space-y-1">
-                {/* Simulated Barcode */}
-                <div className="flex justify-center items-end gap-0.5 h-6 py-0.5">
-                  {[3, 1, 4, 1, 2, 4, 2, 1, 3, 2, 1, 4, 2, 3, 1, 2, 4, 1, 3, 2, 1, 4, 2, 1, 3].map((w, i) => (
-                    <span
-                      key={i}
-                      className="bg-slate-900 h-full inline-block"
-                      style={{ width: `${w}px` }}
-                    />
-                  ))}
-                </div>
-                <p className="font-mono text-[8px] tracking-wider font-bold">*{bill.invoiceNumber}*</p>
                 <p className="text-[8px] leading-tight text-slate-600">{footerNote}</p>
                 <p className="font-black text-slate-900 tracking-wider">*** THANK YOU ***</p>
               </div>
@@ -461,18 +450,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                 )}
               </div>
 
-              {/* Barcode Graphic & Footer */}
+              {/* Footer */}
               <div className="text-center pt-2 space-y-1.5 text-[10px] text-slate-700">
-                <div className="flex justify-center items-end gap-0.5 h-8 py-0.5">
-                  {[2, 1, 3, 1, 4, 2, 1, 3, 1, 2, 4, 1, 3, 2, 1, 4, 1, 3, 2, 4, 1, 2, 3, 1, 4, 2, 1, 3, 2, 1].map((w, i) => (
-                    <span
-                      key={i}
-                      className="bg-slate-900 h-full inline-block"
-                      style={{ width: `${w}px` }}
-                    />
-                  ))}
-                </div>
-                <p className="font-mono text-[9px] font-bold tracking-widest text-slate-950">*{bill.invoiceNumber}*</p>
                 <p className="text-[9.5px] text-slate-600 leading-snug px-4">{footerNote}</p>
                 <p className="font-bold text-slate-900 tracking-wider text-[11px] pt-1">*** THANK YOU FOR VISITING SASTIKA MOBILES ***</p>
               </div>
