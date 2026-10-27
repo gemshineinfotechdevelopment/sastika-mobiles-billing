@@ -196,10 +196,11 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
             <label className="block text-xs font-medium text-slate-600 mb-1">Mobile Number</label>
             <input
               type="tel"
-              placeholder="e.g. 9876543210"
+              maxLength={10}
+              placeholder="e.g. 9876543210 (10 digits)"
               value={customer.phone}
-              onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-indigo-600 focus:bg-white"
+              onChange={(e) => setCustomer({ ...customer, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-indigo-600 focus:bg-white font-mono"
             />
           </div>
 

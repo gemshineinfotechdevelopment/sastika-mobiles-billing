@@ -55,9 +55,11 @@ export const SettingsView: React.FC = () => {
           <div>
             <label className="block font-semibold text-slate-700 mb-1">Official Mobile Phone</label>
             <input
-              type="text"
+              type="tel"
+              maxLength={10}
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              placeholder="e.g. 9876543210 (10 digits)"
               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-blue-600 font-mono text-slate-900"
             />
           </div>

@@ -210,10 +210,11 @@ export const EditBillModal: React.FC<EditBillModalProps> = ({
                   Phone Number
                 </label>
                 <input
-                  type="text"
+                  type="tel"
+                  maxLength={10}
                   value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="e.g. 9840123456"
+                  onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="e.g. 9840123456 (10 digits)"
                   className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
                 />
               </div>

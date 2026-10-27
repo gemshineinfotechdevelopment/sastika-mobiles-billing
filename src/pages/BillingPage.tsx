@@ -621,6 +621,11 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       return;
     }
 
+    if (custPhone.replace(/\D/g, '').length !== 10) {
+      alert('Please enter a valid 10-digit Customer Mobile Number.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const emiPayload: EmiDetails | undefined = isCreditEmi
@@ -1217,10 +1222,11 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               <div className="relative">
                 <input
                   type="tel"
+                  maxLength={10}
                   list="registered-customer-phones"
                   value={selectedCustomer.phone}
                   onChange={(e) => {
-                    const val = e.target.value;
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                     const matched = customerList.find((c) => c.phone && c.phone.trim() === val.trim());
                     if (matched) {
                       setSelectedCustomer(matched);
@@ -1228,7 +1234,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                       setSelectedCustomer((prev) => ({ ...prev, phone: val }));
                     }
                   }}
-                  placeholder="e.g. 9840123456"
+                  placeholder="e.g. 9840123456 (10 digits)"
                   className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-mono font-semibold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
                 <datalist id="registered-customer-phones">

@@ -47,6 +47,11 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
       return;
     }
 
+    if (phone.replace(/\D/g, '').length !== 10) {
+      setErrorMsg('Please enter a valid 10-digit mobile phone number.');
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await api.addCustomer({
@@ -134,12 +139,14 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
               <input
                 type="tel"
                 required
+                maxLength={10}
                 value={formData.phone}
                 onChange={(e) => {
-                  setFormData({ ...formData, phone: e.target.value });
+                  const cleaned = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setFormData({ ...formData, phone: cleaned });
                   if (errorMsg) setErrorMsg(null);
                 }}
-                placeholder="e.g. 9840123456"
+                placeholder="e.g. 9840123456 (10 digits)"
                 className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-blue-600 focus:bg-white font-mono"
               />
             </div>

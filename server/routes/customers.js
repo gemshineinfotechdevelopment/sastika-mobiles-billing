@@ -91,26 +91,29 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Customer Name and Phone number are required' });
     }
 
-    // Check existing by exact phone or matching 10-digit number
+    // Enforce exactly 10-digit phone number
     const digitsOnly = trimmedPhone.replace(/\D/g, '');
-    let existing = await Customer.findOne({ phone: trimmedPhone });
-    if (!existing && digitsOnly.length >= 10) {
-      const last10 = digitsOnly.slice(-10);
+    if (digitsOnly.length !== 10) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid 10-digit mobile number' });
+    }
+
+    let existing = await Customer.findOne({ phone: digitsOnly });
+    if (!existing) {
       existing = await Customer.findOne({
-        phone: { $regex: `${last10}$` },
+        phone: { $regex: `${digitsOnly}$` },
       });
     }
 
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: `Customer with phone "${trimmedPhone}" already exists (${existing.name})`,
+        message: `Customer with phone "${digitsOnly}" already exists (${existing.name})`,
       });
     }
 
     const customer = new Customer({
       name: trimmedName,
-      phone: trimmedPhone,
+      phone: digitsOnly,
       email: email ? email.trim() : '',
       address: address ? address.trim() : '',
       gstin: gstin ? gstin.trim() : '',
