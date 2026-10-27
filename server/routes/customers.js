@@ -29,7 +29,13 @@ router.get('/', async (req, res) => {
       ];
     }
 
-    const customers = await Customer.find(filter).sort({ khataBalance: -1, createdAt: -1 });
+    const baseFilter = {
+      name: { $ne: 'Walk-in Customer' },
+      phone: { $ne: 'Cash Counter' },
+      ...filter,
+    };
+
+    const customers = await Customer.find(baseFilter).sort({ khataBalance: -1, createdAt: -1 });
 
     res.json({
       success: true,

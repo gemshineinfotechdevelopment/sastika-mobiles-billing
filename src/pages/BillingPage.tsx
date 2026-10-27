@@ -4,7 +4,6 @@ import {
   Plus,
   Trash2,
   User,
-  UserCheck,
   UserPlus,
   Edit2,
   Tag,
@@ -16,16 +15,23 @@ import {
   IndianRupee,
   QrCode,
   ShoppingCart,
+  ChevronDown,
+  ChevronUp,
+  RotateCcw,
 } from 'lucide-react';
 import type { Bill, BillItem, Customer, Product } from '../types';
 import { api } from '../services/api';
+import type { NavTab } from '../components/Sidebar';
 
 interface BillingPageProps {
   products: Product[];
+  bills?: Bill[];
   onInvoiceCreated: (bill: Bill) => void;
   onOpenAddCustomer?: () => void;
   lastAddedCustomer?: Customer | null;
   refreshTrigger?: number;
+  onViewBill?: (bill: Bill) => void;
+  onNavigateTab?: (tab: NavTab) => void;
 }
 
 interface PosProduct {
@@ -47,7 +53,6 @@ const BILLING_SESSION_STORAGE_KEY = 'sastika_pos_billing_session';
 interface BillingDraftSession {
   cartItems: BillItem[];
   selectedCustomer: Customer;
-  customerMode: 'walkin' | 'registered';
   discount: number;
   discountLabel: string;
   paymentMode: 'UPI' | 'Cash' | 'Card' | 'Credit';
@@ -73,11 +78,15 @@ const loadSavedBillingSession = (): Partial<BillingDraftSession> => {
 
 export const BillingPage: React.FC<BillingPageProps> = ({
   products: serverProducts,
+  bills = [],
   onInvoiceCreated,
   onOpenAddCustomer,
   lastAddedCustomer,
   refreshTrigger,
+  onViewBill,
+  onNavigateTab,
 }) => {
+  const [showRecentBillsModal, setShowRecentBillsModal] = useState(false);
   const scanInputRef = useRef<HTMLInputElement>(null);
   const billScanInputRef = useRef<HTMLInputElement>(null);
 
@@ -149,17 +158,24 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
   // Customer state: loaded from MongoDB database
   const [customerList, setCustomerList] = useState<Customer[]>([]);
-  const [customerMode, setCustomerMode] = useState<'walkin' | 'registered'>(() => {
-    return initialDraft.customerMode || 'walkin';
-  });
   const [selectedCustomer, setSelectedCustomer] = useState<Customer>(() => {
-    return (
-      initialDraft.selectedCustomer || {
-        name: 'Walk-in Customer',
-        phone: 'Counter Sale',
-      }
-    );
+    if (
+      initialDraft.selectedCustomer &&
+      initialDraft.selectedCustomer.name &&
+      initialDraft.selectedCustomer.name !== 'Walk-in Customer'
+    ) {
+      return initialDraft.selectedCustomer;
+    }
+    return {
+      name: '',
+      phone: '',
+      email: '',
+      address: '',
+      gstin: '',
+      tier: 'REGULAR',
+    };
   });
+  const [showExtraCustomerFields, setShowExtraCustomerFields] = useState(false);
 
   useEffect(() => {
     api
@@ -169,9 +185,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           setCustomerList(res.customers);
           if (lastAddedCustomer) {
             setSelectedCustomer(lastAddedCustomer);
-            setCustomerMode('registered');
-          } else if (customerMode === 'registered' && !initialDraft.selectedCustomer) {
-            setSelectedCustomer(res.customers[0]);
           }
         }
       })
@@ -204,7 +217,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       const sessionData: BillingDraftSession = {
         cartItems,
         selectedCustomer,
-        customerMode,
         discount,
         discountLabel,
         paymentMode,
@@ -219,7 +231,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   }, [
     cartItems,
     selectedCustomer,
-    customerMode,
     discount,
     discountLabel,
     paymentMode,
@@ -234,15 +245,13 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         if (!e.newValue) {
           setCartItems([]);
           setDiscount(0);
-          setSelectedCustomer({ name: 'Walk-in Customer', phone: 'Counter Sale' });
-          setCustomerMode('walkin');
+          setSelectedCustomer({ name: '', phone: '', email: '', address: '', gstin: '', tier: 'REGULAR' });
           return;
         }
         try {
           const parsed: BillingDraftSession = JSON.parse(e.newValue);
           if (Array.isArray(parsed.cartItems)) setCartItems(parsed.cartItems);
           if (parsed.selectedCustomer) setSelectedCustomer(parsed.selectedCustomer);
-          if (parsed.customerMode) setCustomerMode(parsed.customerMode);
           if (typeof parsed.discount === 'number') setDiscount(parsed.discount);
           if (parsed.discountLabel) setDiscountLabel(parsed.discountLabel);
           if (parsed.paymentMode) setPaymentMode(parsed.paymentMode);
@@ -452,42 +461,87 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       return;
     }
 
+    const custName = (selectedCustomer?.name || '').trim();
+    const custPhone = (selectedCustomer?.phone || '').trim();
+
+    if (!custName) {
+      alert('Please enter Customer Name to proceed with billing.');
+      return;
+    }
+
+    if (!custPhone) {
+      alert('Please enter Customer Mobile Number to maintain customer records.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const billData = {
-        customer:
-          customerMode === 'registered'
-            ? selectedCustomer
-            : { name: 'Walk-in Customer', phone: 'Cash Counter' },
-        items: cartItems,
+        customer: {
+          id: selectedCustomer?.id || '',
+          name: custName,
+          phone: custPhone,
+          email: selectedCustomer?.email || '',
+          address: selectedCustomer?.address || '',
+          gstin: selectedCustomer?.gstin || '',
+          tier: selectedCustomer?.tier || 'REGULAR',
+        },
+        items: cartItems.map((item) => ({
+          productId: item.productId || '',
+          name: item.name,
+          model: item.model || '',
+          imei: item.imei || '',
+          quantity: Number(item.quantity) || 1,
+          unitPrice: Number(item.unitPrice) || 0,
+          gstRate: Number(item.gstRate) || 18,
+          taxableAmount: Number(item.taxableAmount) || 0,
+          total: Number(item.total) || 0,
+        })),
         paymentMode,
+        tenderMode: paymentMode,
+        paidAmount: paymentMode === 'Credit' ? 0 : netPayable,
+        balanceDue: paymentMode === 'Credit' ? netPayable : 0,
         notes: discount > 0 ? `${discountLabel}: -₹${discount}` : invoiceNotes,
       };
 
       const res = await api.createBill(billData);
-      if (res.success && res.bill) {
+      if (res && res.success && res.bill) {
         localStorage.removeItem(BILLING_SESSION_STORAGE_KEY);
         onInvoiceCreated(res.bill);
         setCartItems([]);
         setDiscount(0);
-        setSelectedCustomer({ name: 'Walk-in Customer', phone: 'Counter Sale' });
-        setCustomerMode('walkin');
+        setSelectedCustomer({ name: '', phone: '', email: '', address: '', gstin: '', tier: 'REGULAR' });
         setViewMode('catalog');
         // Refresh local products to reflect decremented stock
         api.getProducts().then((pRes) => {
           if (pRes && pRes.products) setLiveProducts(pRes.products);
         });
+        // Also refresh customers list
+        api.getCustomers().then((cRes) => {
+          if (cRes && cRes.customers) setCustomerList(cRes.customers);
+        });
+      } else {
+        throw new Error(res?.message || 'Server did not return bill data');
       }
-    } catch (err) {
-      console.warn('Backend offline, generating local bill preview:', err);
+    } catch (err: any) {
+      console.warn('Backend invoice creation notice:', err);
+      // Fallback local bill if network disconnected
       const localBill: Bill = {
         id: `INV-${Date.now().toString().slice(-6)}`,
-        invoiceNumber: `INV-2024-${Date.now().toString().slice(-4)}`,
-        date: new Date().toISOString(),
-        customer:
-          customerMode === 'registered'
-            ? selectedCustomer
-            : { name: 'Walk-in Customer', phone: 'Counter Sale' },
+        invoiceNumber: `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
+        date: new Date().toISOString().slice(0, 10),
+        time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        customer: {
+          id: selectedCustomer?.id || '',
+          name: custName,
+          phone: custPhone,
+          email: selectedCustomer?.email || '',
+          address: selectedCustomer?.address || '',
+          gstin: selectedCustomer?.gstin || '',
+          tier: selectedCustomer?.tier || 'REGULAR',
+        },
         items: cartItems,
         subTotal: taxableValue,
         cgstTotal: cgst,
@@ -495,14 +549,17 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         totalTax: totalTax,
         grandTotal: netPayable,
         paymentMode,
-        notes: 'Thanks for shopping at Sastika Mobiles!',
+        tenderMode: paymentMode,
+        status: paymentMode === 'Credit' ? 'PARTIAL' : 'PAID',
+        paidAmount: paymentMode === 'Credit' ? 0 : netPayable,
+        balanceDue: paymentMode === 'Credit' ? netPayable : 0,
+        notes: discount > 0 ? `${discountLabel}: -₹${discount}` : invoiceNotes,
       };
       localStorage.removeItem(BILLING_SESSION_STORAGE_KEY);
       onInvoiceCreated(localBill);
       setCartItems([]);
       setDiscount(0);
-      setSelectedCustomer({ name: 'Walk-in Customer', phone: 'Counter Sale' });
-      setCustomerMode('walkin');
+      setSelectedCustomer({ name: '', phone: '', email: '', address: '', gstin: '', tier: 'REGULAR' });
       setViewMode('catalog');
     } finally {
       setSubmitting(false);
@@ -581,8 +638,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                   localStorage.removeItem(BILLING_SESSION_STORAGE_KEY);
                   setCartItems([]);
                   setDiscount(0);
-                  setSelectedCustomer({ name: 'Walk-in Customer', phone: 'Counter Sale' });
-                  setCustomerMode('walkin');
+                  setSelectedCustomer({ name: '', phone: '', email: '', address: '', gstin: '', tier: 'REGULAR' });
                   setTimeout(() => billScanInputRef.current?.focus(), 50);
                 }
               }}
@@ -590,6 +646,16 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             >
               Reset Bill
             </button>
+            {bills.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowRecentBillsModal(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/60 rounded-xl transition-colors cursor-pointer"
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                <span>Recent Bills ({bills.length})</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setViewMode('catalog')}
@@ -600,153 +666,204 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           </div>
         </div>
 
-        {/* Section 1: Customer Details */}
+        {/* Section 1: Customer Details (Every customer data is maintained) */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
                 <User className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-900">Customer Details</h2>
-                <p className="text-[11px] text-slate-500">Choose Walk-in or select a registered customer</p>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-slate-900">Customer Details</h2>
+                  {selectedCustomer.id || customerList.some((c) => c.phone === selectedCustomer.phone && selectedCustomer.phone) ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      ✓ Registered Customer
+                    </span>
+                  ) : selectedCustomer.name.trim() ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                      ➕ New Customer (Auto-saved)
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-[11px] text-slate-500">Every customer's data is maintained and tracked across sales</p>
               </div>
             </div>
 
-            {/* Customer Type Toggle */}
-            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setCustomerMode('walkin')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                  customerMode === 'walkin'
-                    ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <User className="w-3.5 h-3.5" />
-                <span>Walk-in Customer</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCustomerMode('registered')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                  customerMode === 'registered'
-                    ? 'bg-white text-blue-700 shadow-2xs font-bold'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <UserCheck className="w-3.5 h-3.5" />
-                <span>Registered Customer</span>
-              </button>
+            {/* Quick Actions */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {customerList.length > 0 && (
+                <div className="relative">
+                  <select
+                    value={selectedCustomer.name && customerList.some((c) => c.name === selectedCustomer.name) ? selectedCustomer.name : ''}
+                    onChange={(e) => {
+                      const match = customerList.find((c) => c.name === e.target.value);
+                      if (match) setSelectedCustomer(match);
+                    }}
+                    className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-blue-500 cursor-pointer"
+                  >
+                    <option value="">Search / Pick Registered Customer...</option>
+                    {customerList.map((c) => (
+                      <option key={c.id || c.phone || c.name} value={c.name}>
+                        {c.name} — {c.phone} {c.khataBalance ? `(Due: ₹${c.khataBalance})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {onOpenAddCustomer && (
+                <button
+                  type="button"
+                  onClick={onOpenAddCustomer}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                  title="Open Customer Registration Modal"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>+ New Customer</span>
+                </button>
+              )}
+
+              {(selectedCustomer.name || selectedCustomer.phone) && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedCustomer({
+                      name: '',
+                      phone: '',
+                      email: '',
+                      address: '',
+                      gstin: '',
+                      tier: 'REGULAR',
+                    })
+                  }
+                  className="px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                  title="Clear Customer Fields"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Clear</span>
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Customer Form Info */}
-          {customerMode === 'walkin' ? (
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3 text-xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-xs">
-                    WI
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-800 text-sm">Walk-in Customer (Counter Sale)</p>
-                    <p className="text-slate-500 text-[11px]">Instant retail sale • Name & Mobile automatically preserved</p>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 self-start sm:self-auto">
-                  Quick Checkout
-                </span>
-              </div>
-
-              {/* Optional Quick Customer Details for Walk-in */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/60">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    Customer Name (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={selectedCustomer.name === 'Walk-in Customer' ? '' : selectedCustomer.name}
-                    onChange={(e) =>
-                      setSelectedCustomer((prev) => ({
-                        ...prev,
-                        name: e.target.value.trim() ? e.target.value : 'Walk-in Customer',
-                      }))
+          {/* Customer Input Fields */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Customer Name <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={selectedCustomer.name}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const matched = customerList.find(
+                      (c) => c.name.toLowerCase() === val.toLowerCase().trim()
+                    );
+                    if (matched) {
+                      setSelectedCustomer(matched);
+                    } else {
+                      setSelectedCustomer((prev) => ({ ...prev, name: val }));
                     }
-                    placeholder="Walk-in Customer (or enter name)"
-                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-blue-500 font-medium"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    Mobile Number (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={selectedCustomer.phone === 'Counter Sale' ? '' : selectedCustomer.phone}
-                    onChange={(e) =>
-                      setSelectedCustomer((prev) => ({
-                        ...prev,
-                        phone: e.target.value.trim() ? e.target.value : 'Counter Sale',
-                      }))
-                    }
-                    placeholder="e.g. 9876543210 (or leave blank)"
-                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-blue-500 font-mono"
-                  />
-                </div>
+                  }}
+                  placeholder="Enter customer name..."
+                  className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
               </div>
             </div>
-          ) : (
-            <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex-1 max-w-md">
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    Select Customer
-                  </label>
-                  <select
-                    value={selectedCustomer.name}
-                    onChange={(e) => {
-                      const cust = customerList.find((c) => c.name === e.target.value);
-                      if (cust) setSelectedCustomer(cust);
-                    }}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-blue-500"
-                  >
-                    {customerList.length === 0 ? (
-                      <option value="">No customers found</option>
-                    ) : (
-                      customerList.map((c) => (
-                        <option key={c.id || c.name} value={c.name}>
-                          {c.name} — {c.phone}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
 
-                <div className="flex items-center gap-3 text-xs">
-                  <div>
-                    <span className="text-[11px] text-slate-500 block">Contact:</span>
-                    <span className="font-mono font-bold text-slate-800">{selectedCustomer.phone}</span>
-                  </div>
-                  {selectedCustomer.gstin && (
-                    <div className="border-l border-slate-200 pl-3">
-                      <span className="text-[11px] text-slate-500 block">GSTIN:</span>
-                      <span className="font-mono font-bold text-slate-800">{selectedCustomer.gstin}</span>
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onOpenAddCustomer) onOpenAddCustomer();
-                    }}
-                    className="ml-auto sm:ml-4 flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>+ Add New Customer</span>
-                  </button>
-                </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Mobile Number <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="tel"
+                  value={selectedCustomer.phone}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const matched = customerList.find((c) => c.phone && c.phone.trim() === val.trim());
+                    if (matched) {
+                      setSelectedCustomer(matched);
+                    } else {
+                      setSelectedCustomer((prev) => ({ ...prev, phone: val }));
+                    }
+                  }}
+                  placeholder="e.g. 9840123456"
+                  className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-mono font-semibold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Customer details badges or matched indicators */}
+          {selectedCustomer.name && (
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px]">
+              <div className="flex items-center gap-2 flex-wrap">
+                {selectedCustomer.tier && (
+                  <span className="px-2 py-0.5 rounded-md font-bold bg-slate-100 text-slate-700">
+                    Tier: {selectedCustomer.tier}
+                  </span>
+                )}
+                {typeof selectedCustomer.khataBalance === 'number' && selectedCustomer.khataBalance > 0 && (
+                  <span className="px-2 py-0.5 rounded-md font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                    Khata Due: ₹{selectedCustomer.khataBalance.toLocaleString('en-IN')}
+                  </span>
+                )}
+                {typeof selectedCustomer.lifetimeSales === 'number' && selectedCustomer.lifetimeSales > 0 && (
+                  <span className="text-slate-500">
+                    Lifetime Purchases: ₹{selectedCustomer.lifetimeSales.toLocaleString('en-IN')}
+                  </span>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowExtraCustomerFields((prev) => !prev)}
+                className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer flex items-center gap-1 text-[11px]"
+              >
+                <span>{showExtraCustomerFields ? 'Hide' : '+ Add'} Address / GSTIN</span>
+                {showExtraCustomerFields ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </button>
+            </div>
+          )}
+
+          {/* Optional Additional Fields (Address, GSTIN, Email) */}
+          {showExtraCustomerFields && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">GSTIN (Optional)</label>
+                <input
+                  type="text"
+                  value={selectedCustomer.gstin || ''}
+                  onChange={(e) => setSelectedCustomer((prev) => ({ ...prev, gstin: e.target.value.toUpperCase() }))}
+                  placeholder="33AAAAA0000A1Z5"
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-mono uppercase focus:outline-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Email (Optional)</label>
+                <input
+                  type="email"
+                  value={selectedCustomer.email || ''}
+                  onChange={(e) => setSelectedCustomer((prev) => ({ ...prev, email: e.target.value }))}
+                  placeholder="customer@example.com"
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Address (Optional)</label>
+                <input
+                  type="text"
+                  value={selectedCustomer.address || ''}
+                  onChange={(e) => setSelectedCustomer((prev) => ({ ...prev, address: e.target.value }))}
+                  placeholder="City, Area, Pincode"
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-blue-500"
+                />
               </div>
             </div>
           )}
@@ -1265,6 +1382,17 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          {bills.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowRecentBillsModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200/90 shadow-2xs transition-all cursor-pointer"
+            >
+              <Receipt className="w-4 h-4 text-blue-600" />
+              <span>Recent Bills ({bills.length})</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => {
@@ -1435,6 +1563,135 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               </span>
             </div>
           </button>
+        </div>
+      )}
+      {/* 5. Recent Invoices Counter Sales Section */}
+      {bills.length > 0 && (
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-blue-600" />
+              <h2 className="font-bold text-sm text-slate-900">Recent Invoices Generated</h2>
+              <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md">
+                Live Counter Sales
+              </span>
+            </div>
+            {onNavigateTab && (
+              <button
+                type="button"
+                onClick={() => onNavigateTab('sales')}
+                className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+              >
+                <span>View All in Sales &amp; Bills →</span>
+              </button>
+            )}
+          </div>
+
+          <div className="divide-y divide-slate-100 text-xs">
+            {bills.slice(0, 5).map((bill) => (
+              <div
+                key={bill.id}
+                className="py-2.5 flex items-center justify-between hover:bg-slate-50/60 px-2 rounded-lg transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="font-mono font-bold text-blue-600 text-xs">{bill.invoiceNumber}</span>
+                  <div>
+                    <span className="font-bold text-slate-900 block">
+                      {bill.customer?.name || 'Customer'}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {bill.date} {bill.time ? `• ${bill.time}` : ''} • {bill.paymentMode || 'Cash'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="font-bold font-sans text-slate-900">
+                    ₹{(bill.grandTotal || 0).toLocaleString('en-IN')}
+                  </span>
+                  {onViewBill && (
+                    <button
+                      type="button"
+                      onClick={() => onViewBill(bill)}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-[11px] cursor-pointer"
+                    >
+                      View / Print
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent Bills Modal Dialog */}
+      {showRecentBillsModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/80">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-blue-600" />
+                <h3 className="font-bold text-sm text-slate-900">
+                  Recent Counter Invoices ({bills.length})
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRecentBillsModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-2 flex-1 text-xs divide-y divide-slate-100">
+              {bills.slice(0, 15).map((b) => (
+                <div key={b.id} className="pt-2 flex items-center justify-between">
+                  <div>
+                    <span className="font-mono font-bold text-blue-600">{b.invoiceNumber}</span>
+                    <p className="font-bold text-slate-900">{b.customer?.name || 'Customer'}</p>
+                    <p className="text-[10px] text-slate-400">
+                      {b.date} {b.time ? `• ${b.time}` : ''} • {b.paymentMode || 'Cash'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold font-sans text-slate-900 text-sm">
+                      ₹{(b.grandTotal || 0).toLocaleString('en-IN')}
+                    </span>
+                    {onViewBill && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowRecentBillsModal(false);
+                          onViewBill(b);
+                        }}
+                        className="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold rounded-lg text-[11px] cursor-pointer"
+                      >
+                        Print
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between text-xs">
+              <span className="text-slate-500">Stored in MongoDB database</span>
+              {onNavigateTab && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRecentBillsModal(false);
+                    onNavigateTab('sales');
+                  }}
+                  className="font-bold text-blue-600 hover:underline cursor-pointer"
+                >
+                  Go to Full Sales &amp; Bills Page →
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

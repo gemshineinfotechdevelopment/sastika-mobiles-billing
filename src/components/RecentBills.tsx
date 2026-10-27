@@ -12,9 +12,9 @@ export const RecentBills: React.FC<RecentBillsProps> = ({ bills, onSelectBill })
 
   const filteredBills = bills.filter(
     (b) =>
-      b.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      b.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (b.customer.phone && b.customer.phone.includes(searchTerm))
+      (b.invoiceNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (b.customer?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (b.customer?.phone && b.customer.phone.includes(searchTerm))
   );
 
   return (
@@ -68,9 +68,9 @@ export const RecentBills: React.FC<RecentBillsProps> = ({ bills, onSelectBill })
                   <td className="py-3 px-3">
                     <div className="font-semibold text-slate-900 flex items-center gap-1.5">
                       <User className="w-3.5 h-3.5 text-slate-400" />
-                      {bill.customer.name}
+                      {bill.customer?.name || 'Customer'}
                     </div>
-                    {bill.customer.phone && (
+                    {bill.customer?.phone && (
                       <span className="text-slate-400 text-[11px]">{bill.customer.phone}</span>
                     )}
                   </td>

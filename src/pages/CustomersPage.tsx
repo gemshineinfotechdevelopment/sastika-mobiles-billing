@@ -58,24 +58,26 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({
 
   // Filter customers
   const filteredCustomers = useMemo(() => {
-    return customers.filter((c) => {
-      const q = searchTerm.toLowerCase().trim();
-      const matchSearch =
-        !q ||
-        c.name.toLowerCase().includes(q) ||
-        (c.phone && c.phone.includes(q)) ||
-        (c.address && c.address.toLowerCase().includes(q));
+    return customers
+      .filter((c) => c.name !== 'Walk-in Customer' && c.phone !== 'Cash Counter')
+      .filter((c) => {
+        const q = searchTerm.toLowerCase().trim();
+        const matchSearch =
+          !q ||
+          (c.name && c.name.toLowerCase().includes(q)) ||
+          (c.phone && c.phone.includes(q)) ||
+          (c.address && c.address.toLowerCase().includes(q));
 
-      const due = c.khataBalance || 0;
-      let matchTab = true;
-      if (activeTab === 'due') {
-        matchTab = due > 0;
-      } else if (activeTab === 'settled') {
-        matchTab = due === 0;
-      }
+        const due = c.khataBalance || 0;
+        let matchTab = true;
+        if (activeTab === 'due') {
+          matchTab = due > 0;
+        } else if (activeTab === 'settled') {
+          matchTab = due === 0;
+        }
 
-      return matchSearch && matchTab;
-    });
+        return matchSearch && matchTab;
+      });
   }, [customers, searchTerm, activeTab]);
 
   // Pagination

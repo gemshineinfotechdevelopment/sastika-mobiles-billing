@@ -1,17 +1,24 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   Search,
   Download,
   Plus,
   Eye,
+  Printer,
+  Edit2,
+  Trash2,
   Ban,
   Calendar,
   X,
+  RefreshCw,
+  CheckCircle2,
 } from 'lucide-react';
 import type { Bill } from '../types';
 import { api } from '../services/api';
 import { DailyZReportModal } from '../components/modals/DailyZReportModal';
 import { VoidBillModal } from '../components/modals/VoidBillModal';
+import { EditBillModal } from '../components/modals/EditBillModal';
+import { DeleteBillModal } from '../components/modals/DeleteBillModal';
 
 interface SalesPageProps {
   bills: Bill[];
@@ -25,21 +32,40 @@ export const SalesPage: React.FC<SalesPageProps> = ({
   onNewBill,
 }) => {
   const [billsList, setBillsList] = useState<Bill[]>(propBills);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    setBillsList(propBills || []);
+    if (propBills && propBills.length > 0) {
+      setBillsList((prev) => {
+        const map = new Map<string, Bill>();
+        propBills.forEach((b) => map.set(b.id || b.invoiceNumber, b));
+        prev.forEach((b) => {
+          const key = b.id || b.invoiceNumber;
+          if (!map.has(key)) map.set(key, b);
+        });
+        return Array.from(map.values());
+      });
+    }
   }, [propBills]);
 
-  // Fetch directly from live MongoDB database on mount
-  useEffect(() => {
-    api.getBills()
-      .then((res) => {
-        if (res && res.bills) {
-          setBillsList(res.bills);
-        }
-      })
-      .catch((err) => console.warn('Could not load live bills from database:', err));
+  // Fetch directly from live MongoDB database
+  const fetchLiveBills = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const res = await api.getBills();
+      if (res && res.bills) {
+        setBillsList(res.bills);
+      }
+    } catch (err) {
+      console.warn('Could not load live bills from database:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchLiveBills();
+  }, [fetchLiveBills]);
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,19 +76,39 @@ export const SalesPage: React.FC<SalesPageProps> = ({
   // Modals state
   const [showZReportModal, setShowZReportModal] = useState(false);
   const [voidingBill, setVoidingBill] = useState<Bill | null>(null);
+  const [editingBill, setEditingBill] = useState<Bill | null>(null);
+  const [deletingBill, setDeletingBill] = useState<Bill | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Filter bills
+  // Filter bills - Always sorted with newest invoices first
   const filteredBills = useMemo(() => {
-    return billsList.filter((b) => {
+    const sorted = [...billsList].sort((a, b) => {
+      const timeA = a.createdAt
+        ? new Date(a.createdAt).getTime()
+        : a.date
+        ? new Date(a.date).getTime()
+        : 0;
+      const timeB = b.createdAt
+        ? new Date(b.createdAt).getTime()
+        : b.date
+        ? new Date(b.date).getTime()
+        : 0;
+      const safeA = isNaN(timeA) ? 0 : timeA;
+      const safeB = isNaN(timeB) ? 0 : timeB;
+      if (safeA !== safeB) return safeB - safeA;
+      return (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true });
+    });
+
+    return sorted.filter((b) => {
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !q ||
-        b.invoiceNumber.toLowerCase().includes(q) ||
-        b.customer.name.toLowerCase().includes(q) ||
-        (b.customer.phone && b.customer.phone.includes(q)) ||
-        b.items.some((item) => item.name.toLowerCase().includes(q));
+        (b.invoiceNumber && b.invoiceNumber.toLowerCase().includes(q)) ||
+        (b.customer?.name && b.customer.name.toLowerCase().includes(q)) ||
+        (b.customer?.phone && b.customer.phone.includes(q)) ||
+        (b.items && b.items.some((item) => item?.name && item.name.toLowerCase().includes(q)));
 
       let matchesStatus = true;
       if (selectedStatus === 'Paid') {
@@ -120,13 +166,35 @@ export const SalesPage: React.FC<SalesPageProps> = ({
     );
   };
 
+  // Edit Bill Handler
+  const handleBillUpdated = (updatedBill: Bill) => {
+    setBillsList((prev) =>
+      prev.map((b) => (b.id === updatedBill.id || b.invoiceNumber === updatedBill.invoiceNumber ? updatedBill : b))
+    );
+    setNotification({
+      message: `Invoice ${updatedBill.invoiceNumber} updated successfully!`,
+      type: 'success',
+    });
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  // Delete Bill Handler
+  const handleBillDeleted = (billId: string) => {
+    setBillsList((prev) => prev.filter((b) => b.id !== billId && b.invoiceNumber !== billId));
+    setNotification({
+      message: 'Invoice deleted permanently from database and stock restored.',
+      type: 'success',
+    });
+    setTimeout(() => setNotification(null), 4000);
+  };
+
   // Export CSV
   const handleExportCSV = () => {
     const headers = ['Invoice #', 'Date', 'Customer Name', 'Phone', 'Items', 'Total', 'Payment Mode', 'Status'];
     const rows = filteredBills.map((b) => [
       `"${b.invoiceNumber || ''}"`,
       `"${b.date ? new Date(b.date).toLocaleDateString('en-IN') : ''}"`,
-      `"${b.customer?.name || 'Walk-in'}"`,
+      `"${b.customer?.name || 'Customer'}"`,
       `"${b.customer?.phone || ''}"`,
       `"${(b.items || []).map((i) => i.name).join('; ')}"`,
       b.grandTotal ?? 0,
@@ -145,6 +213,22 @@ export const SalesPage: React.FC<SalesPageProps> = ({
 
   return (
     <div className="space-y-5 animate-in fade-in duration-150">
+      {/* Toast Notification */}
+      {notification && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center justify-between shadow-xs animate-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{notification.message}</span>
+          </div>
+          <button
+            onClick={() => setNotification(null)}
+            className="p-1 hover:bg-emerald-100 rounded-lg text-emerald-600 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* 1. Header with Stats & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -157,6 +241,16 @@ export const SalesPage: React.FC<SalesPageProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => fetchLiveBills()}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+            title="Refresh bills directly from database"
+          >
+            <RefreshCw className={`w-4 h-4 text-blue-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
+
           <button
             onClick={() => setShowZReportModal(true)}
             className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs"
@@ -270,9 +364,9 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                       </td>
                       <td className="py-3 px-4">
                         <span className="font-semibold text-slate-900 block">
-                          {bill.customer?.name || 'Walk-in Customer'}
+                          {bill.customer?.name || 'Customer'}
                         </span>
-                        {bill.customer?.phone && bill.customer.phone !== 'Counter Sale' && (
+                        {bill.customer?.phone && (
                           <span className="text-[11px] text-slate-400 font-mono">
                             {bill.customer.phone}
                           </span>
@@ -314,21 +408,45 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                           <button
                             type="button"
                             onClick={() => onSelectBill(bill)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer"
-                            title="View & Print Invoice"
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors"
+                            title="View Invoice"
                           >
                             <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onSelectBill(bill)}
+                            className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors"
+                            title="Print Invoice"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingBill(bill)}
+                            className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg cursor-pointer transition-colors"
+                            title="Edit Invoice"
+                          >
+                            <Edit2 className="w-4 h-4" />
                           </button>
                           {!isVoided && (
                             <button
                               type="button"
                               onClick={() => setVoidingBill(bill)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
                               title="Cancel / Void Invoice"
                             >
                               <Ban className="w-4 h-4" />
                             </button>
                           )}
+                          <button
+                            type="button"
+                            onClick={() => setDeletingBill(bill)}
+                            className="p-1.5 text-slate-400 hover:text-red-700 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"
+                            title="Delete Invoice"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -375,9 +493,9 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                         </span>
                       </div>
                       <h4 className="font-bold text-slate-900 text-xs leading-snug">
-                        {bill.customer?.name || 'Walk-in Customer'}
+                        {bill.customer?.name || 'Customer'}
                       </h4>
-                      {bill.customer?.phone && bill.customer.phone !== 'Counter Sale' && (
+                      {bill.customer?.phone && (
                         <p className="text-[10px] text-slate-400 font-mono mt-0.5">
                           {bill.customer.phone}
                         </p>
@@ -404,23 +522,42 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                     <span>
                       {bill.date ? new Date(bill.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Today'}
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      <button
+                        type="button"
+                        onClick={() => onSelectBill(bill)}
+                        className="flex items-center gap-1 text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded-md text-[11px] cursor-pointer hover:bg-blue-100"
+                        title="Print Invoice"
+                      >
+                        <Printer className="w-3 h-3" />
+                        <span>Print</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingBill(bill)}
+                        className="flex items-center gap-1 text-amber-700 font-bold bg-amber-50 px-2 py-1 rounded-md text-[11px] cursor-pointer hover:bg-amber-100"
+                        title="Edit Invoice"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                        <span>Edit</span>
+                      </button>
                       {!isVoided && (
                         <button
                           type="button"
                           onClick={() => setVoidingBill(bill)}
-                          className="text-rose-600 font-medium hover:underline cursor-pointer"
+                          className="text-slate-500 hover:text-rose-600 text-[11px] px-1.5 py-1 rounded hover:bg-rose-50 cursor-pointer"
+                          title="Void / Cancel"
                         >
-                          Cancel Bill
+                          <Ban className="w-3.5 h-3.5" />
                         </button>
                       )}
                       <button
                         type="button"
-                        onClick={() => onSelectBill(bill)}
-                        className="flex items-center gap-1 text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded cursor-pointer"
+                        onClick={() => setDeletingBill(bill)}
+                        className="text-slate-400 hover:text-rose-600 text-[11px] px-1.5 py-1 rounded hover:bg-rose-50 cursor-pointer"
+                        title="Delete Invoice"
                       >
-                        <Eye className="w-3 h-3" />
-                        <span>View</span>
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -463,6 +600,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
       <DailyZReportModal
         isOpen={showZReportModal}
         onClose={() => setShowZReportModal(false)}
+        bills={billsList}
       />
 
       <VoidBillModal
@@ -470,6 +608,20 @@ export const SalesPage: React.FC<SalesPageProps> = ({
         bill={voidingBill}
         onClose={() => setVoidingBill(null)}
         onBillVoided={handleBillVoided}
+      />
+
+      <EditBillModal
+        isOpen={Boolean(editingBill)}
+        bill={editingBill}
+        onClose={() => setEditingBill(null)}
+        onBillUpdated={handleBillUpdated}
+      />
+
+      <DeleteBillModal
+        isOpen={Boolean(deletingBill)}
+        bill={deletingBill}
+        onClose={() => setDeletingBill(null)}
+        onBillDeleted={handleBillDeleted}
       />
     </div>
   );

@@ -125,7 +125,14 @@ export function App() {
 
   const handleInvoiceCreated = (newBill: Bill) => {
     setSelectedBill(newBill);
-    // Reload both bills and products directly from database to reflect new bill and decremented stock
+    // Instantly prepend to state so Sales & Bills and Dashboard show it with 0ms delay
+    setBills((prev) => [
+      newBill,
+      ...prev.filter(
+        (b) => b.id !== newBill.id && b.invoiceNumber !== newBill.invoiceNumber
+      ),
+    ]);
+    // Reload directly from database to ensure full synchronization
     loadData();
   };
 
@@ -207,10 +214,13 @@ export function App() {
           <ErrorBoundary key="billing" fallbackMessage="Billing page failed to load">
             <BillingPage
               products={products}
+              bills={bills}
               onInvoiceCreated={handleInvoiceCreated}
               onOpenAddCustomer={() => setShowAddCustomerModal(true)}
               lastAddedCustomer={lastAddedCustomer}
               refreshTrigger={customerRefreshKey}
+              onViewBill={(bill) => setSelectedBill(bill)}
+              onNavigateTab={(tab) => setActiveTab(tab)}
             />
           </ErrorBoundary>
         )}
