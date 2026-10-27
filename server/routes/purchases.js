@@ -101,7 +101,7 @@ router.post('/', async (req, res) => {
     const processedItems = items.map((i) => {
       const qty = Number(i.quantity) || 1;
       const cost = Number(i.unitCost) || 0;
-      const gst = Number(i.gstRate) !== undefined ? Number(i.gstRate) : 18;
+      const gst = i.gstRate !== undefined && i.gstRate !== '' && !isNaN(Number(i.gstRate)) ? Number(i.gstRate) : 18;
       const taxable = Number(i.taxableAmount) || (qty * cost);
       const itemTotal = Number(i.totalAmount) || (taxable * (1 + gst / 100));
       return {

@@ -14,7 +14,7 @@ interface NewItemRow {
   category: string;
   quantity: number;
   unitCost: number;
-  gstRate: number;
+  gstRate: number | string;
   imeis: string[];
 }
 
@@ -72,7 +72,7 @@ export const NewPurchaseBillModal: React.FC<NewPurchaseBillModalProps> = ({
     items.reduce((acc, it) => acc + (it.quantity * it.unitCost), 0);
 
   const calculateTax = () =>
-    items.reduce((acc, it) => acc + (it.quantity * it.unitCost * (it.gstRate / 100)), 0);
+    items.reduce((acc, it) => acc + (it.quantity * it.unitCost * ((Number(it.gstRate) || 0) / 100)), 0);
 
   const totalAmount = calculateSubtotal() + calculateTax();
   const balanceDue = Math.max(0, totalAmount - paidAmount);
@@ -139,9 +139,9 @@ export const NewPurchaseBillModal: React.FC<NewPurchaseBillModalProps> = ({
         category: it.category,
         quantity: it.quantity,
         unitCost: it.unitCost,
-        gstRate: it.gstRate,
+        gstRate: it.gstRate === '' || isNaN(Number(it.gstRate)) ? 0 : Number(it.gstRate),
         taxableAmount: it.quantity * it.unitCost,
-        totalAmount: it.quantity * it.unitCost * (1 + it.gstRate / 100),
+        totalAmount: it.quantity * it.unitCost * (1 + (it.gstRate === '' || isNaN(Number(it.gstRate)) ? 0 : Number(it.gstRate)) / 100),
         imeiNumbers: it.imeis,
       })),
     };
@@ -276,7 +276,7 @@ export const NewPurchaseBillModal: React.FC<NewPurchaseBillModalProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {items.map((item, idx) => {
-                    const lineTotal = item.quantity * item.unitCost * (1 + item.gstRate / 100);
+                    const lineTotal = item.quantity * item.unitCost * (1 + (Number(item.gstRate) || 0) / 100);
                     return (
                       <tr key={idx} className="hover:bg-slate-50/50">
                         <td className="py-2 px-3">
@@ -351,21 +351,19 @@ export const NewPurchaseBillModal: React.FC<NewPurchaseBillModalProps> = ({
                           />
                         </td>
                         <td className="py-2 px-2 text-center">
-                          <select
+                          <input
+                            type="text"
+                            inputMode="decimal"
                             value={item.gstRate}
                             onChange={(e) => {
-                              const val = parseInt(e.target.value) || 18;
+                              const val = e.target.value.replace(/[^0-9.]/g, '');
                               setItems((prev) =>
                                 prev.map((it, i) => (i === idx ? { ...it, gstRate: val } : it))
                               );
                             }}
-                            className="text-xs px-1 py-1 border border-slate-200 rounded-md bg-white"
-                          >
-                            <option value={18}>18%</option>
-                            <option value={12}>12%</option>
-                            <option value={28}>28%</option>
-                            <option value={0}>0%</option>
-                          </select>
+                            placeholder="0"
+                            className="w-16 text-center px-1.5 py-1 text-xs font-mono font-bold border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
                         </td>
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-800">
                           ₹{lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
