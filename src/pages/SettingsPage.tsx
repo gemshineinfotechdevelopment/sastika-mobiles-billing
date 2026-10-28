@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Printer,
   Save,
-  Receipt,
+  ReceiptIndianRupee,
   CheckCircle2,
   FileText,
 } from 'lucide-react';
@@ -287,7 +287,7 @@ export const SettingsPage: React.FC = () => {
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                {isA4 ? <FileText className="w-4 h-4" /> : <Receipt className="w-4 h-4" />}
+                {isA4 ? <FileText className="w-4 h-4" /> : <ReceiptIndianRupee className="w-4 h-4" />}
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900">

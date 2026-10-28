@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Printer, X, Receipt, FileText } from 'lucide-react';
+import { Printer, X, ReceiptIndianRupee, FileText } from 'lucide-react';
 import type { Bill } from '../types';
 import { api } from '../services/api';
 import sastikaLogo from '../assets/sastika-logo1.jpeg';
@@ -82,6 +82,15 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
   const formattedDate = bill.date || new Date().toISOString().slice(0, 10);
   const formattedTime = bill.time || '12:00 PM';
 
+  // Dynamic CGST & SGST percentage labels
+  const effectiveGstPercent = bill.subTotal > 0 && (bill.cgstTotal + bill.sgstTotal) > 0
+    ? Number((((bill.cgstTotal + bill.sgstTotal) / bill.subTotal) * 100).toFixed(1))
+    : bill.items[0]?.gstRate !== undefined
+    ? bill.items[0].gstRate
+    : 18;
+  const effectiveCgstPercent = Number((effectiveGstPercent / 2).toFixed(1));
+  const effectiveSgstPercent = Number((effectiveGstPercent / 2).toFixed(1));
+
   // Responsive modal width based on chosen format
   const modalMaxWidth =
     printFormat === '58mm'
@@ -146,7 +155,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                     : 'text-slate-300 hover:text-white'
                 }`}
               >
-                <Receipt className="w-3 h-3" />
+                <ReceiptIndianRupee className="w-3 h-3" />
                 <span>80mm (3")</span>
               </button>
 
@@ -159,7 +168,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                     : 'text-slate-300 hover:text-white'
                 }`}
               >
-                <Receipt className="w-3 h-3" />
+                <ReceiptIndianRupee className="w-3 h-3" />
                 <span>58mm (2")</span>
               </button>
 
@@ -229,7 +238,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                     </div>
                     <div className="flex justify-between text-[8.5px] text-slate-600 font-mono pl-3">
                       <span>{item.quantity}x @ ₹{item.unitPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                      <span>GST {item.gstRate || 18}%</span>
+                      <span>GST {item.gstRate !== undefined ? item.gstRate : 18}%</span>
                     </div>
                     {item.imei && (
                       <div className="text-[8px] text-slate-600 font-mono pl-3">
@@ -552,10 +561,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                           ₹{item.unitPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
                         <td className="py-2 px-2 text-right border border-slate-900 font-mono">
-                          ₹{(item.taxableAmount || (item.unitPrice * (item.quantity || 1) / 1.18)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          ₹{(item.taxableAmount !== undefined ? item.taxableAmount : (item.unitPrice * (item.quantity || 1) / (1 + (item.gstRate !== undefined ? item.gstRate : 18) / 100))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
                         <td className="py-2 px-2 text-center border border-slate-900 font-mono text-slate-700">
-                          {item.gstRate || 18}%
+                          {item.gstRate !== undefined ? item.gstRate : 18}%
                         </td>
                         <td className="py-2 px-2 text-right border border-slate-900 font-mono font-bold text-slate-900">
                           ₹{item.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -631,13 +640,13 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                       </td>
                     </tr>
                     <tr className="border-b border-slate-900">
-                      <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">CGST (9%):</td>
+                      <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">CGST ({effectiveCgstPercent}%):</td>
                       <td className="py-1.5 px-3 text-right font-mono text-slate-900">
                         ₹{bill.cgstTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                     </tr>
                     <tr className="border-b border-slate-900">
-                      <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">SGST (9%):</td>
+                      <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">SGST ({effectiveSgstPercent}%):</td>
                       <td className="py-1.5 px-3 text-right font-mono text-slate-900">
                         ₹{bill.sgstTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>

@@ -325,7 +325,7 @@ router.post('/', async (req, res) => {
     for (const item of items) {
       const qty = Number(item.quantity) || 1;
       const price = Number(item.unitPrice) || 0;
-      const gstRate = Number(item.gstRate) || 18;
+      const gstRate = (item.gstRate !== undefined && !isNaN(Number(item.gstRate))) ? Math.max(0, Number(item.gstRate)) : 18;
 
       const itemTotal = price * qty;
       const taxable = itemTotal / (1 + gstRate / 100);
@@ -375,8 +375,14 @@ router.post('/', async (req, res) => {
       }
     }
 
-    const calculatedPaid = paidAmount !== undefined ? Number(paidAmount) : grandTotal;
-    const calculatedDue = balanceDue !== undefined ? Number(balanceDue) : Math.max(0, grandTotal - calculatedPaid);
+    const finalGrand = Math.max(0, grandTotal - Number(discount || 0));
+    const discountRatio = grandTotal > 0 ? finalGrand / grandTotal : 1;
+    const effectiveSubTotal = subTotal * discountRatio;
+    const effectiveCgst = cgstTotal * discountRatio;
+    const effectiveSgst = sgstTotal * discountRatio;
+
+    const calculatedPaid = paidAmount !== undefined ? Number(paidAmount) : finalGrand;
+    const calculatedDue = balanceDue !== undefined ? Number(balanceDue) : Math.max(0, finalGrand - calculatedPaid);
     const billStatus = calculatedDue > 0 ? 'PARTIAL' : 'PAID';
 
     const newBill = new Bill({
@@ -393,13 +399,13 @@ router.post('/', async (req, res) => {
         tier: customer?.tier || 'REGULAR',
       },
       items: processedItems,
-      subTotal: Number(subTotal.toFixed(2)),
-      cgstTotal: Number(cgstTotal.toFixed(2)),
-      sgstTotal: Number(sgstTotal.toFixed(2)),
-      totalTax: Number((cgstTotal + sgstTotal).toFixed(2)),
+      subTotal: Number(effectiveSubTotal.toFixed(2)),
+      cgstTotal: Number(effectiveCgst.toFixed(2)),
+      sgstTotal: Number(effectiveSgst.toFixed(2)),
+      totalTax: Number((effectiveCgst + effectiveSgst).toFixed(2)),
       discount: Number(Number(discount || req.body.discount || 0).toFixed(2)),
       discountPercent: Number(Number(discountPercent || req.body.discountPercent || 0).toFixed(2)),
-      grandTotal: Number(grandTotal.toFixed(2)),
+      grandTotal: Number(finalGrand.toFixed(2)),
       paidAmount: Number(calculatedPaid.toFixed(2)),
       balanceDue: Number(calculatedDue.toFixed(2)),
       dueDate: dueDate || '',

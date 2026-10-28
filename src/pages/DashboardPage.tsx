@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Receipt,
+  ReceiptIndianRupee,
   Plus,
   UserPlus,
   CreditCard,
@@ -65,7 +65,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             onClick={() => onNavigateTab('billing')}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-all cursor-pointer active:scale-98"
           >
-            <Receipt className="w-4 h-4" />
+            <ReceiptIndianRupee className="w-4 h-4" />
             <span>New Bill</span>
             <span className="bg-blue-700/80 text-blue-100 text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wide ml-0.5">
               F2
@@ -139,7 +139,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           className="p-4 bg-white hover:bg-blue-50/50 border border-slate-200/90 rounded-2xl text-left transition-all group cursor-pointer shadow-2xs"
         >
           <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
-            <Receipt className="w-5 h-5" />
+            <ReceiptIndianRupee className="w-5 h-5" />
           </div>
           <h3 className="font-bold text-slate-900 text-sm">Billing POS</h3>
           <p className="text-[11px] text-slate-500 mt-0.5">Start new customer sale</p>

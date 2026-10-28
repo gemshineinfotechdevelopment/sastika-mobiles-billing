@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, Printer, FileText, CheckCircle2, RefreshCw, Calendar, AlertTriangle, TrendingUp, DollarSign, PackageCheck, Receipt } from 'lucide-react';
+import { X, Printer, FileText, CheckCircle2, RefreshCw, Calendar, AlertTriangle, TrendingUp, IndianRupee, PackageCheck, ReceiptIndianRupee } from 'lucide-react';
 import type { Bill, ZReportData, ZReportProductItem, ZReportBillSummary } from '../../types';
 import { api } from '../../services/api';
 
@@ -323,7 +323,7 @@ export const DailyZReportModal: React.FC<DailyZReportModalProps> = ({
                 <div className="border border-slate-900 rounded-lg p-2.5 bg-blue-50/40">
                   <div className="flex items-center justify-between text-slate-600 mb-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider">Today's Sales</span>
-                    <DollarSign className="w-3.5 h-3.5 text-blue-600" />
+                    <IndianRupee className="w-3.5 h-3.5 text-blue-600" />
                   </div>
                   <div className="text-base font-black text-slate-950 font-mono">
                     ₹{reportData.grossSales.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -349,7 +349,7 @@ export const DailyZReportModal: React.FC<DailyZReportModalProps> = ({
                 <div className="border border-slate-900 rounded-lg p-2.5 bg-purple-50/40">
                   <div className="flex items-center justify-between text-slate-600 mb-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider">Cash & UPI In Hand</span>
-                    <Receipt className="w-3.5 h-3.5 text-purple-600" />
+                    <ReceiptIndianRupee className="w-3.5 h-3.5 text-purple-600" />
                   </div>
                   <div className="text-base font-black text-purple-900 font-mono">
                     ₹{reportData.breakdown.netCollected.toLocaleString('en-IN', { minimumFractionDigits: 2 })}

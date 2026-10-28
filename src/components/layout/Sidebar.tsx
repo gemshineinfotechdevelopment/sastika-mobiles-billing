@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   LayoutGrid,
-  Receipt,
+  ReceiptIndianRupee,
   Smartphone,
   FileText,
   Users,
@@ -48,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const menuItems: MenuItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
-    { id: 'billing', label: 'Billing / POS', icon: Receipt },
+    { id: 'billing', label: 'Billing / POS', icon: ReceiptIndianRupee },
     { id: 'products', label: 'Products', icon: Smartphone },
     { id: 'sales', label: 'Sales & Bills', icon: FileText },
     { id: 'customers', label: 'Customers', icon: Users },

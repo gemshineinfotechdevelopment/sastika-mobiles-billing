@@ -9,7 +9,7 @@ import {
   Tag,
   Printer,
   X,
-  Receipt,
+  ReceiptIndianRupee,
   ArrowLeft,
   CreditCard,
   IndianRupee,
@@ -72,6 +72,7 @@ interface BillingDraftSession {
   emiInterestRate?: number | '';
   emiTenureMonths?: number;
   emiServiceCharge?: number | '';
+  defaultGstRate?: number | '';
   savedAt: number;
 }
 
@@ -278,6 +279,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const [emiServiceCharge, setEmiServiceCharge] = useState<number | ''>(() => {
     return initialDraft.emiServiceCharge !== undefined ? initialDraft.emiServiceCharge : '';
   });
+  const [billGstRate, setBillGstRate] = useState<number | ''>(() => {
+    return initialDraft.defaultGstRate !== undefined ? initialDraft.defaultGstRate : 18;
+  });
   const [customTenureInput, setCustomTenureInput] = useState<string>('');
   const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
 
@@ -324,6 +328,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         emiInterestRate,
         emiTenureMonths,
         emiServiceCharge,
+        defaultGstRate: billGstRate,
         savedAt: Date.now(),
       };
       localStorage.setItem(BILLING_SESSION_STORAGE_KEY, JSON.stringify(sessionData));
@@ -345,6 +350,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     emiInterestRate,
     emiTenureMonths,
     emiServiceCharge,
+    billGstRate,
   ]);
 
   // Synchronize across multiple browser tabs automatically
@@ -410,20 +416,47 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [viewMode, onOpenAddCustomer]);
 
-  // Recalculate item financials with reverse GST
+  // Recalculate item financials with reverse GST (GST is inclusive; total is preserved, taxable is reduced)
   const calculateItemFinancials = (qty: number, unitPrice: number, gstRate: number = 18) => {
-    const total = qty * unitPrice;
-    const taxable = total / (1 + gstRate / 100);
-    const tax = total - taxable;
+    const total = Number((qty * unitPrice).toFixed(2));
+    const rate = Math.max(0, Number(gstRate) || 0);
+    const taxable = Number((total / (1 + rate / 100)).toFixed(2));
+    const tax = Number((total - taxable).toFixed(2));
     return {
       quantity: qty,
       unitPrice,
       total,
-      taxableAmount: Number(taxable.toFixed(2)),
+      taxableAmount: taxable,
       cgst: Number((tax / 2).toFixed(2)),
       sgst: Number((tax / 2).toFixed(2)),
-      gstRate,
+      gstRate: rate,
     };
+  };
+
+  // Update GST rate for an individual item in cart (Manual Entry)
+  const handleUpdateItemGstRate = (index: number, newRateVal: string | number) => {
+    const parsedRate = newRateVal === '' ? 0 : Math.max(0, Math.min(100, Number(newRateVal) || 0));
+    setCartItems((prev) => {
+      const copy = [...prev];
+      const target = copy[index];
+      if (!target) return prev;
+      const financials = calculateItemFinancials(target.quantity, target.unitPrice, parsedRate);
+      copy[index] = { ...target, ...financials };
+      return copy;
+    });
+  };
+
+  // Update GST rate for all items in the invoice (Bill-level quick entry)
+  const handleApplyBillGstRate = (newRateVal: string | number) => {
+    const parsedRate = newRateVal === '' ? '' : Math.max(0, Math.min(100, Number(newRateVal) || 0));
+    setBillGstRate(parsedRate);
+    const rateNumber = typeof parsedRate === 'number' ? parsedRate : 0;
+    setCartItems((prev) =>
+      prev.map((item) => {
+        const financials = calculateItemFinancials(item.quantity, item.unitPrice, rateNumber);
+        return { ...item, ...financials };
+      })
+    );
   };
 
   // Add product to cart
@@ -439,9 +472,11 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         return updated;
       }
 
-      // Fresh add
+      // Fresh add - use product's GST or current bill GST rate
+      const defaultRate = typeof billGstRate === 'number' ? billGstRate : 18;
+      const effectiveRate = product.gstRate !== undefined && !isNaN(product.gstRate) ? product.gstRate : defaultRate;
       const imeiToAssign = product.imeiList && product.imeiList.length > 0 ? product.imeiList[0] : '';
-      const financials = calculateItemFinancials(1, product.price, product.gstRate);
+      const financials = calculateItemFinancials(1, product.price, effectiveRate);
       return [
         ...prev,
         {
@@ -553,11 +588,35 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     })
     .slice(0, 6);
 
-  // Reverse GST for the net total (18% GST standard)
-  const taxableValue = Number((netPayable / 1.18).toFixed(2));
-  const totalTax = Number((netPayable - taxableValue).toFixed(2));
+  // Reverse GST for net total (Total amount includes GST; taxable is reduced, and GST amount is extracted)
+  const discountRatio = rawSubtotal > 0 ? netPayable / rawSubtotal : 1;
+  const taxableValue = useMemo(() => {
+    if (cartItems.length === 0) return 0;
+    const sum = cartItems.reduce((acc, item) => {
+      const itemNet = (item.total || 0) * discountRatio;
+      const rate = Math.max(0, Number(item.gstRate !== undefined ? item.gstRate : (typeof billGstRate === 'number' ? billGstRate : 18)));
+      const taxBase = itemNet / (1 + rate / 100);
+      return acc + taxBase;
+    }, 0);
+    return Number(sum.toFixed(2));
+  }, [cartItems, discountRatio, billGstRate]);
+
+  const totalTax = useMemo(() => {
+    if (cartItems.length === 0) return 0;
+    return Number(Math.max(0, netPayable - taxableValue).toFixed(2));
+  }, [netPayable, taxableValue, cartItems.length]);
+
   const cgst = Number((totalTax / 2).toFixed(2));
   const sgst = Number((totalTax / 2).toFixed(2));
+
+  // Determine effective display percentage for CGST & SGST labels
+  const effectiveGstRate = useMemo(() => {
+    if (taxableValue <= 0 || totalTax <= 0) return 0;
+    return Number(((totalTax / taxableValue) * 100).toFixed(1));
+  }, [totalTax, taxableValue]);
+
+  const cgstRateLabel = Number((effectiveGstRate / 2).toFixed(1));
+  const sgstRateLabel = Number((effectiveGstRate / 2).toFixed(1));
 
   // Detect primary phone / mobile item in cart to customize EMI model & recommended tenure
   const primaryPhoneItem = useMemo(() => {
@@ -980,7 +1039,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                 onClick={() => setShowRecentBillsModal(true)}
                 className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/60 rounded-xl transition-colors cursor-pointer"
               >
-                <Receipt className="w-3.5 h-3.5" />
+                <ReceiptIndianRupee className="w-3.5 h-3.5" />
                 <span>Recent Bills ({bills.length})</span>
               </button>
             )}
@@ -1437,14 +1496,55 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
         {/* Section 3: Professional Invoice Items Table (Full Width) */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-slate-50/60">
             <div className="flex items-center gap-2">
               <ShoppingCart className="w-4 h-4 text-blue-600" />
               <h3 className="font-bold text-slate-900 text-sm">Invoice Items ({totalItemsCount})</h3>
             </div>
-            <span className="text-xs text-slate-500 font-mono">
-              Taxable: ₹{taxableValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </span>
+
+            {/* Quick Bill GST Setter (Applies to all items / sets default) */}
+            <div className="flex items-center gap-2 flex-wrap text-xs">
+              <span className="text-[11px] font-bold text-slate-600">Bill GST %:</span>
+              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2.5 py-1 shadow-2xs focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="any"
+                  value={billGstRate === '' ? '' : billGstRate}
+                  onChange={(e) => handleApplyBillGstRate(e.target.value)}
+                  placeholder="18"
+                  className="w-10 text-center font-bold text-xs font-mono text-slate-800 bg-transparent focus:outline-none"
+                  title="Enter manual GST % for bill"
+                />
+                <span className="text-[10px] font-bold text-slate-400">%</span>
+              </div>
+              <div className="flex items-center gap-1">
+                {[0, 5, 12, 18, 28].map((rate) => (
+                  <button
+                    key={rate}
+                    type="button"
+                    onClick={() => handleApplyBillGstRate(rate)}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      billGstRate === rate
+                        ? 'bg-blue-600 text-white shadow-2xs'
+                        : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
+                    }`}
+                  >
+                    {rate}%
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 text-xs">
+              <span className="text-slate-500 font-mono">
+                Taxable: ₹{taxableValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </span>
+              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200/60 font-mono">
+                GST: ₹{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
           </div>
 
           {/* Desktop Table View */}
@@ -1468,7 +1568,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                   <tr>
                     <td colSpan={9} className="py-12 text-center text-slate-400">
                       <div className="max-w-xs mx-auto space-y-2">
-                        <Receipt className="w-8 h-8 text-slate-300 mx-auto" />
+                        <ReceiptIndianRupee className="w-8 h-8 text-slate-300 mx-auto" />
                         <p className="font-semibold text-slate-600 text-sm">Your invoice is empty</p>
                         <p className="text-xs text-slate-400">
                           Search products above or browse catalog to add items.
@@ -1542,10 +1642,20 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                       <td className="py-3.5 px-3 text-right font-mono text-slate-600">
                         ₹{(item.taxableAmount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="py-3.5 px-3 text-center">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                          {item.gstRate || 18}%
-                        </span>
+                      <td className="py-2.5 px-3 text-center">
+                        <div className="inline-flex items-center justify-center gap-1 bg-slate-50 hover:bg-slate-100/90 border border-slate-200/90 rounded-lg px-2 py-1 transition-all focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:bg-white shadow-2xs">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="any"
+                            value={item.gstRate !== undefined ? item.gstRate : 18}
+                            onChange={(e) => handleUpdateItemGstRate(index, e.target.value)}
+                            className="w-10 text-center font-bold text-xs font-mono text-slate-800 bg-transparent focus:outline-none"
+                            title="Edit GST % for this item"
+                          />
+                          <span className="text-[10px] font-bold text-slate-400 select-none">%</span>
+                        </div>
                       </td>
                       <td className="py-3.5 px-4 text-right font-black text-slate-900 font-mono text-sm whitespace-nowrap">
                         ₹{(item.total ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -1571,7 +1681,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           <div className="block md:hidden divide-y divide-slate-100">
             {cartItems.length === 0 ? (
               <div className="py-10 text-center text-slate-400 px-4">
-                <Receipt className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <ReceiptIndianRupee className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                 <p className="font-semibold text-slate-700 text-xs">Your invoice is empty</p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   Search products or add items from catalog
@@ -1619,6 +1729,50 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                       </button>
                     </div>
                   )}
+
+                  {/* Mobile Manual GST Entry & Tax Breakdown */}
+                  <div className="flex items-center justify-between bg-slate-50/90 p-2.5 rounded-xl border border-slate-200/70 text-xs gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] font-bold text-slate-700">GST %:</span>
+                      <div className="inline-flex items-center gap-0.5 bg-white border border-slate-300 rounded-lg px-2 py-0.5 shadow-2xs focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/20">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="any"
+                          value={item.gstRate !== undefined ? item.gstRate : 18}
+                          onChange={(e) => handleUpdateItemGstRate(index, e.target.value)}
+                          className="w-9 text-center font-bold text-xs font-mono text-slate-900 bg-transparent focus:outline-none"
+                        />
+                        <span className="text-[10px] font-bold text-slate-400">%</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {[0, 5, 12, 18].map((rate) => (
+                          <button
+                            key={rate}
+                            type="button"
+                            onClick={() => handleUpdateItemGstRate(index, rate)}
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer transition-colors ${
+                              item.gstRate === rate
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {rate}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="text-[10px] text-slate-500 font-mono block">
+                        Taxable: ₹{(item.taxableAmount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-[10px] text-blue-700 font-mono font-bold block">
+                        GST: ₹{((item.total || 0) - (item.taxableAmount || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
 
                   <div className="flex items-center justify-between pt-1">
                     {/* Stepper */}
@@ -2120,7 +2274,57 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                 </div>
               </div>
 
-              {/* 3. Bill Remarks / Notes */}
+              {/* 3. Manual Bill GST Rate Option */}
+              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Manual Bill GST Rate (%)</span>
+                  </label>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    Inclusive (Total remains unchanged)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                  <div className="relative flex-1 min-w-[120px]">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="any"
+                      value={billGstRate === '' ? '' : billGstRate}
+                      onChange={(e) => handleApplyBillGstRate(e.target.value)}
+                      placeholder="e.g. 18, 12, 5 or 0"
+                      className="w-full pl-3 pr-8 py-1.5 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-blue-600 bg-white"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs pointer-events-none">
+                      %
+                    </span>
+                  </div>
+                  {/* Quick rate presets */}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {[0, 5, 12, 18, 28].map((rate) => (
+                      <button
+                        key={rate}
+                        type="button"
+                        onClick={() => handleApplyBillGstRate(rate)}
+                        className={`px-2 py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
+                          billGstRate === rate
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        {rate}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[10.5px] text-slate-500 leading-tight">
+                  Total amount is tax-inclusive. Taxable value is reduced and GST amount is added to the tax field.
+                </p>
+              </div>
+
+              {/* 4. Bill Remarks / Notes */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
                   Bill Remarks / Notes
@@ -2156,15 +2360,24 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                 </span>
               </div>
               <div className="flex items-center justify-between text-slate-600">
-                <span>CGST (9%)</span>
-                <span className="font-mono text-slate-800">
+                <span>CGST ({cgstRateLabel}%)</span>
+                <span className="font-mono text-slate-800 font-semibold text-blue-700">
                   ₹{cgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </span>
               </div>
               <div className="flex items-center justify-between text-slate-600">
-                <span>SGST (9%)</span>
-                <span className="font-mono text-slate-800">
+                <span>SGST ({sgstRateLabel}%)</span>
+                <span className="font-mono text-slate-800 font-semibold text-blue-700">
                   ₹{sgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-slate-700 bg-blue-50/60 p-2 rounded-xl border border-blue-100/80 font-semibold">
+                <span className="flex items-center gap-1">
+                  <span>Total Tax (GST Amount)</span>
+                  <span className="text-[10px] text-slate-400 font-normal">(Included)</span>
+                </span>
+                <span className="font-mono font-bold text-blue-700">
+                  ₹{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </span>
               </div>
               {totalDiscount > 0 && (
@@ -2336,7 +2549,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               onClick={() => setShowRecentBillsModal(true)}
               className="flex items-center gap-1.5 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200/90 shadow-2xs transition-all cursor-pointer"
             >
-              <Receipt className="w-4 h-4 text-blue-600" />
+              <ReceiptIndianRupee className="w-4 h-4 text-blue-600" />
               <span>Recent Bills ({bills.length})</span>
             </button>
           )}
@@ -2349,7 +2562,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             }}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm shadow-blue-600/20 transition-all cursor-pointer active:scale-98"
           >
-            <Receipt className="w-4 h-4" />
+            <ReceiptIndianRupee className="w-4 h-4" />
             <span>New Bill</span>
             <span className="bg-blue-700/80 text-blue-100 text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wide ml-0.5">
               F2
@@ -2499,7 +2712,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-3 px-4 sm:px-5 py-3 sm:py-3.5 bg-slate-900 text-white rounded-2xl shadow-xl hover:bg-slate-800 transition-all cursor-pointer font-bold text-xs sm:text-sm border border-slate-700 active:scale-98"
           >
             <div className="flex items-center gap-2">
-              <Receipt className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
+              <ReceiptIndianRupee className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
               <span>Bill ({cartItems.length} items)</span>
             </div>
             <div className="flex items-center gap-2">
@@ -2518,7 +2731,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs space-y-3">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-blue-600" />
+              <ReceiptIndianRupee className="w-4 h-4 text-blue-600" />
               <h2 className="font-bold text-sm text-slate-900">Recent Invoices Generated</h2>
               <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md">
                 Live Counter Sales
@@ -2579,7 +2792,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           <div className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/80">
               <div className="flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-blue-600" />
+                <ReceiptIndianRupee className="w-4 h-4 text-blue-600" />
                 <h3 className="font-bold text-sm text-slate-900">
                   Recent Counter Invoices ({bills.length})
                 </h3>
@@ -2670,7 +2883,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95"
             >
               <span>View Bill</span>
-              <Receipt className="w-3.5 h-3.5" />
+              <ReceiptIndianRupee className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Smartphone, RefreshCw, CheckCircle2, AlertCircle, Receipt, Package, FileText } from 'lucide-react';
+import { Smartphone, RefreshCw, CheckCircle2, AlertCircle, ReceiptIndianRupee, Package, FileText } from 'lucide-react';
 import type { HealthResponse } from '../types';
 
 interface HeaderProps {
@@ -50,7 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Receipt className="w-4 h-4" />
+              <ReceiptIndianRupee className="w-4 h-4" />
               New Invoice
             </button>
             <button

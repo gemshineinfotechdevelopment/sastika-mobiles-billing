@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   LayoutGrid,
-  Receipt,
+  ReceiptIndianRupee,
   Smartphone,
   FileText,
   Menu,
@@ -80,7 +80,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 : 'bg-slate-900 text-white shadow-slate-900/20'
             }`}
           >
-            <Receipt className="w-6 h-6" />
+            <ReceiptIndianRupee className="w-6 h-6" />
           </div>
           <span
             className={`text-[10px] mt-1 font-bold ${
