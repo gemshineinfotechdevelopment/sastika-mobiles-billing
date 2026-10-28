@@ -102,11 +102,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 cursor-pointer"
     >
-      <div className={`bg-white rounded-2xl shadow-2xl ${modalMaxWidth} w-full border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150 cursor-default transition-all`}>
+      <div className={`bg-white rounded-2xl shadow-2xl ${modalMaxWidth} w-full border border-slate-200 overflow-hidden my-3 sm:my-8 animate-in fade-in zoom-in-95 duration-150 cursor-default transition-all`}>
         {/* Action Header - Hidden on Print */}
-        <div className="px-5 py-3.5 bg-slate-900 text-white no-print space-y-2.5">
+        <div className="px-3.5 sm:px-5 py-3 sm:py-3.5 bg-slate-900 text-white no-print space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <img
@@ -476,15 +476,15 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
           {printFormat === 'a4' && (
             <div className="space-y-4 text-xs sm:text-sm">
               {/* Shop Header & Title */}
-              <div className="border border-slate-900 rounded-t-lg p-4 flex justify-between items-start bg-slate-50/50">
+              <div className="border border-slate-900 rounded-t-lg p-3 sm:p-4 flex flex-col sm:flex-row justify-between items-start gap-3 bg-slate-50/50">
                 <div className="flex items-start gap-3">
                   <img
                     src={sastikaLogo}
                     alt="Sastika Mobiles"
-                    className="w-14 h-14 rounded-xl object-contain border border-slate-300 shadow-2xs shrink-0 bg-white"
+                    className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-contain border border-slate-300 shadow-2xs shrink-0 bg-white"
                   />
                   <div>
-                    <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-tight">{shopName}</h1>
+                    <h1 className="text-lg sm:text-xl font-black text-slate-900 uppercase tracking-tight leading-tight">{shopName}</h1>
                     <p className="text-[10px] text-amber-700 font-bold uppercase tracking-wider mb-0.5">Premium Mobiles & Accessories</p>
                     <p className="text-slate-600 text-xs">{shopAddress}</p>
                     <p className="text-slate-600 text-xs">Phone: <strong className="text-slate-900">{shopPhone}</strong></p>
@@ -492,7 +492,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                   </div>
                 </div>
 
-                <div className="text-right">
+                <div className="text-left sm:text-right w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200">
                   <span className="inline-block px-3 py-1 bg-slate-900 text-white rounded font-bold text-xs uppercase tracking-wider mb-1.5">
                     TAX INVOICE
                   </span>
