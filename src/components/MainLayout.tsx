@@ -48,7 +48,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col">
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col overflow-x-hidden w-full max-w-full">
       {/* 1. Sidebar Component (Opens/closes across all pages) */}
       <Sidebar
         activeTab={activeTab}
@@ -78,7 +78,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         />
 
         {/* Page Content Body - Responsive padding for mobile bottom bar */}
-        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-5 pb-24 lg:pb-12">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-5 pb-32 sm:pb-28 lg:pb-12">
           {children}
         </main>
 

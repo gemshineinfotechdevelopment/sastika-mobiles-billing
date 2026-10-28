@@ -392,10 +392,10 @@ export const PurchasesPage: React.FC = () => {
         </div>
 
         {/* Tab Switcher Buttons */}
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200/80 text-xs font-bold">
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200/80 text-xs font-bold overflow-x-auto max-w-full scrollbar-none">
           <button
             onClick={() => setActiveSubTab('bills')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               activeSubTab === 'bills'
                 ? 'bg-white text-slate-900 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -407,7 +407,7 @@ export const PurchasesPage: React.FC = () => {
 
           <button
             onClick={() => setActiveSubTab('new-entry')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               activeSubTab === 'new-entry'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'text-blue-700 hover:bg-blue-50'
@@ -419,7 +419,7 @@ export const PurchasesPage: React.FC = () => {
 
           <button
             onClick={() => setActiveSubTab('suppliers')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               activeSubTab === 'suppliers'
                 ? 'bg-white text-slate-900 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
