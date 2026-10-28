@@ -103,6 +103,22 @@
     overflow: visible !important;
   }
 
+  .invoice-modal-content {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  #printable-invoice {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+  }
+
   /* Tables: Clean, high-contrast, structured grid format */
   table.print-table,
   .print-table-container table,

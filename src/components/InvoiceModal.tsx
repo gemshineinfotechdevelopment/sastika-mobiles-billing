@@ -91,31 +91,16 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
   const effectiveCgstPercent = Number((effectiveGstPercent / 2).toFixed(1));
   const effectiveSgstPercent = Number((effectiveGstPercent / 2).toFixed(1));
 
-  // Responsive modal width based on chosen format
-  const modalMaxWidth =
-    printFormat === '58mm'
-      ? 'max-w-sm'
-      : printFormat === '80mm'
-      ? 'max-w-md'
-      : 'max-w-3xl';
-
-  const printClass =
-    printFormat === '58mm'
-      ? 'format-thermal-58mm'
-      : printFormat === '80mm'
-      ? 'format-thermal-80mm'
-      : 'format-a4-laser';
-
   return (
     <div
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 cursor-pointer"
+      className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4 md:p-6 overflow-hidden cursor-pointer"
     >
-      <div className={`bg-white rounded-2xl shadow-2xl ${modalMaxWidth} w-full border border-slate-200 overflow-hidden my-3 sm:my-8 animate-in fade-in zoom-in-95 duration-150 cursor-default transition-all`}>
-        {/* Action Header - Hidden on Print */}
-        <div className="px-3.5 sm:px-5 py-3 sm:py-3.5 bg-slate-900 text-white no-print space-y-2.5">
+      <div className="bg-white rounded-2xl shadow-2xl w-[94vw] sm:w-full sm:max-w-xl max-h-[88vh] flex flex-col border border-slate-200/90 overflow-hidden animate-in fade-in zoom-in-95 duration-150 cursor-default">
+        {/* Action Header - Fixed at Top, Hidden on Print */}
+        <div className="shrink-0 px-3.5 sm:px-5 py-3 sm:py-3.5 bg-slate-900 text-white no-print space-y-2.5 border-b border-slate-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <img
@@ -128,7 +113,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
             <div className="flex items-center gap-2">
               <button
                 onClick={handlePrint}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-sm transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-sm transition-all cursor-pointer active:scale-95"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>Print Bill</span>
@@ -188,8 +173,18 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
           </div>
         </div>
 
-        {/* Printable Invoice Container */}
-        <div id="printable-invoice" className={`p-4 sm:p-6 text-slate-900 bg-white ${printClass}`}>
+        {/* Scrollable Preview Canvas with Paper Sheet Container */}
+        <div className="invoice-modal-content flex-1 overflow-y-auto overflow-x-auto p-3 sm:p-5 bg-slate-100/70">
+          <div
+            id="printable-invoice"
+            className={`bg-white rounded-xl shadow-xs border border-slate-200/90 text-slate-900 ${
+              printFormat === '58mm'
+                ? 'max-w-[320px] mx-auto p-3.5 sm:p-4 format-thermal-58mm'
+                : printFormat === '80mm'
+                ? 'max-w-[420px] mx-auto p-4 sm:p-5 format-thermal-80mm'
+                : 'w-full mx-auto p-4 sm:p-5 format-a4-laser'
+            }`}
+          >
 
           {/* ══════════════════════════════════════════════════════════════════
               FORMAT 1: 58mm ULTRA-COMPACT THERMAL SLIP
@@ -627,7 +622,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
                 )}
 
                 {/* Right: Totals Table */}
-                <table className="w-80 shrink-0 text-xs border border-slate-900 border-collapse print-table">
+                <table className="w-full sm:w-72 shrink-0 text-xs border border-slate-900 border-collapse print-table">
                   <tbody>
                     <tr className="border-b border-slate-900">
                       <td className="py-1.5 px-3 font-semibold text-slate-700 border-r border-slate-900">Total Units / Qty:</td>
@@ -708,6 +703,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ bill, onClose }) => 
               </div>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>
