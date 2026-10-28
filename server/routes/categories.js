@@ -45,10 +45,26 @@ router.get('/', async (req, res) => {
       categories = await Category.find().sort({ name: 1 });
     }
 
+    // Calculate real-time product counts for each category
+    const productCounts = await Product.aggregate([
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+    ]).catch(() => []);
+
+    const countMap = {};
+    (productCounts || []).forEach((pc) => {
+      if (pc._id) countMap[pc._id.toLowerCase()] = pc.count;
+    });
+
+    const categoriesWithCount = categories.map((cat) => {
+      const obj = cat.toObject();
+      obj.itemCount = countMap[cat.name.toLowerCase()] || 0;
+      return obj;
+    });
+
     res.json({
       success: true,
-      count: categories.length,
-      categories,
+      count: categoriesWithCount.length,
+      categories: categoriesWithCount,
     });
   } catch (error) {
     console.error('Error fetching categories:', error);
@@ -115,11 +131,23 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
-    if (!deleted) {
+    const catName = deleted ? deleted.name : id;
+
+    // Cleanly reassign any products that were using this category to Accessories
+    const affectedProducts = await Product.updateMany(
+      { category: { $regex: new RegExp(`^${catName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+      { $set: { category: 'Accessories' } }
+    ).catch(() => ({ modifiedCount: 0 }));
+
+    if (!deleted && (!affectedProducts || affectedProducts.modifiedCount === 0)) {
       return res.status(404).json({ success: false, message: 'Category not found' });
     }
 
-    res.json({ success: true, message: `Category "${deleted.name}" deleted` });
+    res.json({
+      success: true,
+      message: `Category "${catName}" deleted successfully`,
+      reassignedProductsCount: affectedProducts?.modifiedCount || 0,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

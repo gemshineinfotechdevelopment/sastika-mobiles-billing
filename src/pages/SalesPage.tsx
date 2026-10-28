@@ -188,27 +188,94 @@ export const SalesPage: React.FC<SalesPageProps> = ({
     setTimeout(() => setNotification(null), 4000);
   };
 
-  // Export CSV
+  // Export CSV with full customer and invoice details
   const handleExportCSV = () => {
-    const headers = ['Invoice #', 'Date', 'Customer Name', 'Phone', 'Items', 'Total', 'Payment Mode', 'Status'];
-    const rows = filteredBills.map((b) => [
-      `"${b.invoiceNumber || ''}"`,
-      `"${b.date ? new Date(b.date).toLocaleDateString('en-IN') : ''}"`,
-      `"${b.customer?.name || 'Customer'}"`,
-      `"${b.customer?.phone || ''}"`,
-      `"${(b.items || []).map((i) => i.name).join('; ')}"`,
-      b.grandTotal ?? 0,
-      `"${b.paymentMode || b.tenderMode || 'Cash'}"`,
-      `"${b.status || 'PAID'}"`,
-    ]);
+    if (!filteredBills || filteredBills.length === 0) {
+      alert('No sales invoices found to export.');
+      return;
+    }
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const headers = [
+      'Invoice Number',
+      'Invoice Date',
+      'Invoice Time',
+      'Customer Name',
+      'Customer Phone',
+      'Customer Email',
+      'Customer Address',
+      'Customer GSTIN',
+      'Customer Tier',
+      'Customer Type',
+      'Total Items Count',
+      'Items Purchased',
+      'Subtotal Taxable (INR)',
+      'CGST (INR)',
+      'SGST (INR)',
+      'Total Tax (INR)',
+      'Discount (INR)',
+      'Grand Total (INR)',
+      'Paid Amount (INR)',
+      'Balance Due (INR)',
+      'Payment Mode',
+      'Invoice Status',
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""').replace(/\r?\n/g, ' ');
+      return `"${str}"`;
+    };
+
+    const rows = filteredBills.map((b) => {
+      const itemsCount = (b.items || []).reduce((acc, i) => acc + (Number(i.quantity) || 1), 0);
+      const itemsSummary = (b.items || [])
+        .map((i) => {
+          const qty = i.quantity ? `${i.quantity}x ` : '';
+          const imei = i.imei ? ` [IMEI: ${i.imei}]` : '';
+          return `${qty}${i.name || ''}${imei}`;
+        })
+        .join('; ');
+
+      const formattedDate = b.date
+        ? new Date(b.date).toLocaleDateString('en-IN')
+        : '';
+
+      return [
+        escapeCsv(b.invoiceNumber || ''),
+        escapeCsv(formattedDate),
+        escapeCsv(b.time || ''),
+        escapeCsv(b.customer?.name || 'Walk-in Customer'),
+        escapeCsv(b.customer?.phone || ''),
+        escapeCsv(b.customer?.email || ''),
+        escapeCsv(b.customer?.address || ''),
+        escapeCsv(b.customer?.gstin || ''),
+        escapeCsv(b.customer?.tier || 'REGULAR'),
+        escapeCsv(b.customerType || 'RETAIL'),
+        itemsCount,
+        escapeCsv(itemsSummary),
+        Number(b.subTotal || 0).toFixed(2),
+        Number(b.cgstTotal || 0).toFixed(2),
+        Number(b.sgstTotal || 0).toFixed(2),
+        Number(b.totalTax || 0).toFixed(2),
+        Number(b.discount || 0).toFixed(2),
+        Number(b.grandTotal || 0).toFixed(2),
+        Number(b.paidAmount ?? b.grandTotal ?? 0).toFixed(2),
+        Number(b.balanceDue || 0).toFixed(2),
+        escapeCsv(b.paymentMode || b.tenderMode || 'Cash'),
+        escapeCsv(b.status || (Number(b.balanceDue || 0) > 0 ? 'DUE' : 'PAID')),
+      ];
+    });
+
+    const csvContent = [headers.join(','), ...rows.map((e) => e.join(','))].join('\r\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodeURI(csvContent));
-    link.setAttribute('download', `sastika_bills_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.href = url;
+    link.download = `sastika_sales_invoices_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (

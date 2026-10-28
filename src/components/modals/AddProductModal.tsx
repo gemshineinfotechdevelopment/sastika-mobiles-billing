@@ -19,6 +19,7 @@ interface AddProductModalProps {
   onProductAdded?: (newProduct?: Product) => void;
   categories?: string[];
   onCategoryAdded?: (categoryName: string) => void;
+  onCategoryDeleted?: (categoryName: string) => void;
   initialCategory?: string;
 }
 
@@ -28,6 +29,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   onProductAdded,
   categories: propCategories,
   onCategoryAdded,
+  onCategoryDeleted,
   initialCategory,
 }) => {
   const [categoryOptions, setCategoryOptions] = useState<string[]>(() => {
@@ -105,6 +107,24 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
     if (onCategoryAdded) {
       onCategoryAdded(newCatName);
+    }
+  };
+
+  const handleCategoryDeleted = (deletedCatName: string) => {
+    setCategoryOptions((prev) => prev.filter((c) => c.toLowerCase() !== deletedCatName.toLowerCase()));
+    setFormData((prev) => {
+      if (prev.category.toLowerCase() === deletedCatName.toLowerCase()) {
+        const remaining = categoryOptions.filter((c) => c.toLowerCase() !== deletedCatName.toLowerCase());
+        return {
+          ...prev,
+          category: remaining[0] || 'Smartphones',
+        };
+      }
+      return prev;
+    });
+
+    if (onCategoryDeleted) {
+      onCategoryDeleted(deletedCatName);
     }
   };
 
@@ -222,10 +242,10 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                   type="button"
                   onClick={() => setShowAddCategoryModal(true)}
                   className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer transition-colors"
-                  title="Create new category"
+                  title="Create or delete categories"
                 >
                   <Plus className="w-3 h-3" />
-                  <span>+ New Category</span>
+                  <span>+ Manage / New Category</span>
                 </button>
               </div>
               <select
@@ -239,7 +259,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                   </option>
                 ))}
                 <option value="__NEW_CATEGORY__" className="font-bold text-indigo-600 bg-indigo-50">
-                  ➕ + Add New Category...
+                  ⚙️ Manage / Add / Delete Categories...
                 </option>
               </select>
             </div>
@@ -368,11 +388,12 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         </form>
       </div>
 
-      {/* Sub-modal: Add New Category on the fly */}
+      {/* Sub-modal: Manage / Add / Delete Categories on the fly */}
       <AddCategoryModal
         isOpen={showAddCategoryModal}
         onClose={() => setShowAddCategoryModal(false)}
         onCategoryAdded={handleNewCategoryCreated}
+        onCategoryDeleted={handleCategoryDeleted}
       />
     </div>
   );

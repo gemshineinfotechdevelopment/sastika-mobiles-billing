@@ -161,19 +161,27 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
   const handleQuickStockUpdated = (
     productId: string,
-    addedQty: number
+    addedQty: number,
+    updatedProduct?: Product
   ) => {
-    setProductList((prev) =>
-      prev.map((p) => {
-        if (p.id === productId) {
-          return {
-            ...p,
-            stock: (p.stock || 0) + addedQty,
-          };
-        }
-        return p;
-      })
-    );
+    setProductList((prev) => {
+      const exists = prev.some((p) => p.id === productId);
+      if (exists) {
+        return prev.map((p) => {
+          if (p.id === productId) {
+            return {
+              ...p,
+              stock: (p.stock || 0) + addedQty,
+            };
+          }
+          return p;
+        });
+      }
+      if (updatedProduct) {
+        return [updatedProduct, ...prev];
+      }
+      return prev;
+    });
     onProductAdded();
   };
 
@@ -211,10 +219,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           <button
             onClick={() => setShowAddCategoryModal(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-102 active:scale-98"
-            title="Create a new product category"
+            title="Manage categories (create or delete)"
           >
             <FolderPlus className="w-4 h-4 text-indigo-600" />
-            <span>+ New Category</span>
+            <span>Manage Categories</span>
           </button>
 
           <button
@@ -286,6 +294,15 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               {cat}
             </button>
           ))}
+
+          <button
+            onClick={() => setShowAddCategoryModal(true)}
+            className="px-2.5 py-1 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-dashed border-slate-300 rounded-xl transition-all cursor-pointer text-xs flex items-center gap-1 font-semibold"
+            title="Manage Categories (Add or Delete)"
+          >
+            <FolderPlus className="w-3.5 h-3.5" />
+            <span>Manage</span>
+          </button>
         </div>
       </div>
 
@@ -540,6 +557,12 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           setExtraCategories((prev) => (prev.includes(newCat) ? prev : [...prev, newCat]));
           setSelectedCategory(newCat);
         }}
+        onCategoryDeleted={(deletedCat) => {
+          setExtraCategories((prev) => prev.filter((c) => c.toLowerCase() !== deletedCat.toLowerCase()));
+          if (selectedCategory.toLowerCase() === deletedCat.toLowerCase()) {
+            setSelectedCategory('All');
+          }
+        }}
       />
 
       <AddCategoryModal
@@ -548,6 +571,20 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         onCategoryAdded={(newCat) => {
           setExtraCategories((prev) => (prev.includes(newCat) ? prev : [...prev, newCat]));
           setSelectedCategory(newCat);
+        }}
+        onCategoryDeleted={(deletedCat) => {
+          setExtraCategories((prev) => prev.filter((c) => c.toLowerCase() !== deletedCat.toLowerCase()));
+          if (selectedCategory.toLowerCase() === deletedCat.toLowerCase()) {
+            setSelectedCategory('All');
+          }
+          // Refresh products from database in case reassigned
+          api.getProducts()
+            .then((res) => {
+              if (res && res.products) {
+                setProductList(res.products);
+              }
+            })
+            .catch(() => {});
         }}
       />
 
@@ -558,6 +595,15 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         onProductUpdated={handleProductUpdated}
         onProductDeleted={handleProductDeleted}
         categories={allCategoryNames}
+        onCategoryAdded={(newCat) => {
+          setExtraCategories((prev) => (prev.includes(newCat) ? prev : [...prev, newCat]));
+        }}
+        onCategoryDeleted={(deletedCat) => {
+          setExtraCategories((prev) => prev.filter((c) => c.toLowerCase() !== deletedCat.toLowerCase()));
+          if (selectedCategory.toLowerCase() === deletedCat.toLowerCase()) {
+            setSelectedCategory('All');
+          }
+        }}
       />
 
       <QuickStockInModal

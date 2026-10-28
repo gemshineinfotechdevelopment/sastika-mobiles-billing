@@ -451,10 +451,45 @@ export const api = {
   },
 
   async deleteCategory(idOrName: string): Promise<{ success: boolean; message: string }> {
-    const res = await fetch(`${API_BASE}/categories/${encodeURIComponent(idOrName)}`, {
-      method: 'DELETE',
-    });
-    if (!res.ok) throw new Error('Failed to delete category');
-    return res.json();
+    try {
+      const res = await fetch(`${API_BASE}/categories/${encodeURIComponent(idOrName)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Sync local cache
+        const cached = localStorage.getItem('sastika_categories_cache');
+        if (cached) {
+          try {
+            const list = JSON.parse(cached);
+            const filtered = list.filter((c: any) => {
+              const name = typeof c === 'string' ? c : c.name;
+              const id = typeof c === 'object' ? (c._id || c.id) : null;
+              return name?.toLowerCase() !== idOrName.toLowerCase() && id !== idOrName;
+            });
+            localStorage.setItem('sastika_categories_cache', JSON.stringify(filtered));
+          } catch {}
+        }
+        return data;
+      }
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || 'Failed to delete category');
+    } catch (err: any) {
+      // Offline fallback
+      const cached = localStorage.getItem('sastika_categories_cache');
+      if (cached) {
+        try {
+          const list = JSON.parse(cached);
+          const filtered = list.filter((c: any) => {
+            const name = typeof c === 'string' ? c : c.name;
+            const id = typeof c === 'object' ? (c._id || c.id) : null;
+            return name?.toLowerCase() !== idOrName.toLowerCase() && id !== idOrName;
+          });
+          localStorage.setItem('sastika_categories_cache', JSON.stringify(filtered));
+          return { success: true, message: `Category "${idOrName}" deleted from local cache` };
+        } catch {}
+      }
+      throw err;
+    }
   },
 };

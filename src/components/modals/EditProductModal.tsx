@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { X, Check, Edit3, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Check, Edit3, Trash2, Plus } from 'lucide-react';
 import type { Product } from '../../types';
 import { api } from '../../services/api';
+import { AddCategoryModal } from './AddCategoryModal';
 
 interface EditProductModalProps {
   product: Product | null;
@@ -10,6 +11,8 @@ interface EditProductModalProps {
   onProductUpdated: (updatedProduct: Product) => void;
   onProductDeleted?: (id: string) => void;
   categories?: string[];
+  onCategoryAdded?: (categoryName: string) => void;
+  onCategoryDeleted?: (categoryName: string) => void;
 }
 
 export const EditProductModal: React.FC<EditProductModalProps> = ({
@@ -19,6 +22,8 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
   onProductUpdated,
   onProductDeleted,
   categories = [],
+  onCategoryAdded,
+  onCategoryDeleted,
 }) => {
   if (!isOpen || !product) return null;
 
@@ -33,6 +38,15 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
     stock: product.stock.toString(),
     minThreshold: (product.minThreshold || 4).toString(),
   });
+
+  const [categoryOptions, setCategoryOptions] = useState<string[]>(() => {
+    return Array.from(new Set([product.category, ...categories])).filter(Boolean);
+  });
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+
+  useEffect(() => {
+    setCategoryOptions((prev) => Array.from(new Set([...prev, product.category, ...categories])).filter(Boolean));
+  }, [categories, product.category]);
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -72,6 +86,32 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
       onClose();
     }, 600);
     setLoading(false);
+  };
+
+  const handleCategoryChange = (cat: string) => {
+    if (cat === '__NEW_CATEGORY__') {
+      setShowAddCategoryModal(true);
+      return;
+    }
+    setFormData((prev) => ({ ...prev, category: cat }));
+  };
+
+  const handleCategoryAdded = (newCat: string) => {
+    setCategoryOptions((prev) => (prev.includes(newCat) ? prev : [...prev, newCat]));
+    setFormData((prev) => ({ ...prev, category: newCat }));
+    if (onCategoryAdded) onCategoryAdded(newCat);
+  };
+
+  const handleCategoryDeleted = (deletedCat: string) => {
+    setCategoryOptions((prev) => prev.filter((c) => c.toLowerCase() !== deletedCat.toLowerCase()));
+    setFormData((prev) => {
+      if (prev.category.toLowerCase() === deletedCat.toLowerCase()) {
+        const remaining = categoryOptions.filter((c) => c.toLowerCase() !== deletedCat.toLowerCase());
+        return { ...prev, category: remaining[0] || 'Smartphones' };
+      }
+      return prev;
+    });
+    if (onCategoryDeleted) onCategoryDeleted(deletedCat);
   };
 
   const handleDelete = async () => {
@@ -126,17 +166,31 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Category</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block font-bold text-slate-700">Category</label>
+                <button
+                  type="button"
+                  onClick={() => setShowAddCategoryModal(true)}
+                  className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Create or delete categories"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>+ Manage / New Category</span>
+                </button>
+              </div>
               <select
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600"
+                onChange={(e) => handleCategoryChange(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg focus:outline-blue-600 font-medium"
               >
-                {Array.from(new Set([formData.category, ...categories])).filter(Boolean).map((cat) => (
+                {categoryOptions.map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
                   </option>
                 ))}
+                <option value="__NEW_CATEGORY__" className="font-bold text-indigo-600 bg-indigo-50">
+                  ⚙️ Manage / Add / Delete Categories...
+                </option>
               </select>
             </div>
 
@@ -247,6 +301,14 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Sub-modal: Manage / Add / Delete Categories */}
+      <AddCategoryModal
+        isOpen={showAddCategoryModal}
+        onClose={() => setShowAddCategoryModal(false)}
+        onCategoryAdded={handleCategoryAdded}
+        onCategoryDeleted={handleCategoryDeleted}
+      />
     </div>
   );
 };
