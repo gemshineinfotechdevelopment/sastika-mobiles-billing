@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, FolderPlus, Check, Sparkles, Tag, Trash2, Search, Loader2, Layers, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { X, FolderPlus, Check, Tag, Trash2, Loader2, Layers, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { api } from '../../services/api';
 import type { CategoryItem } from '../../types';
 
@@ -9,17 +9,6 @@ interface AddCategoryModalProps {
   onCategoryAdded?: (categoryName: string, category: CategoryItem) => void;
   onCategoryDeleted?: (categoryName: string) => void;
 }
-
-const PRESET_CATEGORIES = [
-  'Back Covers & Cases',
-  'Power Banks',
-  'Bluetooth Speakers',
-  'Feature / Keypad Phones',
-  'Memory Cards & OTG',
-  'Cables & Adapters',
-  'Spare Parts & Screens',
-  'Tablets & iPads',
-];
 
 export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
   isOpen,
@@ -34,7 +23,8 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [categoriesList, setCategoriesList] = useState<CategoryItem[]>([]);
   const [fetchingCategories, setFetchingCategories] = useState(false);
-  const [searchFilter, setSearchFilter] = useState('');
+  const [lastAddedCategory, setLastAddedCategory] = useState<string>('');
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<CategoryItem | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -60,14 +50,36 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setName('');
+      setLastAddedCategory('');
+      setShowAllCategories(false);
       setSuccessMessage('');
       setErrorMessage('');
-      setSearchFilter('');
       setCategoryToDelete(null);
       fetchAllCategories();
       setTimeout(() => inputRef.current?.focus(), 120);
     }
   }, [isOpen]);
+
+  const trimmedInput = name.trim();
+
+  // Filter logic: Whatever is typed, ONLY that is shown.
+  // Other categories are not shown unless the user explicitly toggles "Show all categories".
+  const filteredCategories = useMemo(() => {
+    if (trimmedInput) {
+      return categoriesList.filter((c) =>
+        c.name.toLowerCase().includes(trimmedInput.toLowerCase())
+      );
+    }
+    if (lastAddedCategory) {
+      return categoriesList.filter(
+        (c) => c.name.toLowerCase() === lastAddedCategory.toLowerCase()
+      );
+    }
+    if (showAllCategories) {
+      return categoriesList;
+    }
+    return [];
+  }, [categoriesList, trimmedInput, lastAddedCategory, showAllCategories]);
 
   if (!isOpen) return null;
 
@@ -101,6 +113,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
       });
 
       setSuccessMessage(`Category "${trimmedName}" created successfully!`);
+      setLastAddedCategory(trimmedName);
       setName('');
 
       if (onCategoryAdded) {
@@ -111,12 +124,6 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
-
-  // Trigger quick preset selection
-  const handleSelectPreset = (preset: string) => {
-    setName(preset);
-    inputRef.current?.focus();
   };
 
   // Confirm and delete category
@@ -133,6 +140,10 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
       // Remove from modal list
       setCategoriesList((prev) => prev.filter((c) => c.name.toLowerCase() !== cat.name.toLowerCase()));
 
+      if (lastAddedCategory.toLowerCase() === cat.name.toLowerCase()) {
+        setLastAddedCategory('');
+      }
+
       // Notify parent component
       if (onCategoryDeleted) {
         onCategoryDeleted(cat.name);
@@ -145,10 +156,6 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
       setDeletingId(null);
     }
   };
-
-  const filteredCategories = categoriesList.filter((c) =>
-    c.name.toLowerCase().includes(searchFilter.toLowerCase())
-  );
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -245,22 +252,27 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
             </div>
           )}
 
-          {/* Section 1: Add New Category */}
-          <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-4 space-y-3">
+          {/* Section 1: Add New Category Input */}
+          <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-4 space-y-2">
             <h4 className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
               <Tag className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Add New Category</span>
+              <span>Category Name</span>
             </h4>
 
-            <form onSubmit={handleSubmit} className="space-y-3">
+            <form onSubmit={handleSubmit} className="space-y-2">
               <div className="flex gap-2">
                 <input
                   ref={inputRef}
                   type="text"
                   required
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Back Covers, Earphones, Keypad Phones"
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (e.target.value.trim()) {
+                      setLastAddedCategory('');
+                    }
+                  }}
+                  placeholder="Type category name to search or add..."
                   className="flex-1 px-3.5 py-2 text-xs bg-white border border-slate-300 focus:border-indigo-500 rounded-xl focus:outline-hidden font-semibold text-slate-900 shadow-2xs transition-all placeholder:font-normal placeholder:text-slate-400"
                 />
                 <button
@@ -276,58 +288,73 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
                   <span>{loading ? 'Adding...' : 'Add'}</span>
                 </button>
               </div>
-
-              {/* Quick Suggestions Chips */}
-              <div>
-                <div className="flex items-center gap-1 text-slate-500 font-semibold mb-1 text-[11px]">
-                  <Sparkles className="w-3 h-3 text-indigo-500" />
-                  <span>Quick Suggestions:</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {PRESET_CATEGORIES.map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => handleSelectPreset(preset)}
-                      className="px-2 py-0.5 bg-white hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 border border-slate-200 text-slate-600 rounded-md text-[10px] font-medium transition-all cursor-pointer shadow-2xs"
-                    >
-                      + {preset}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </form>
           </div>
 
-          {/* Section 2: Existing Categories List with DELETE option */}
+          {/* Section 2: Matching Existing Categories List with DELETE option */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
               <h4 className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
                 <Layers className="w-3.5 h-3.5 text-slate-600" />
-                <span>Existing Categories ({categoriesList.length})</span>
+                <span>
+                  {trimmedInput
+                    ? `Existing Category matching "${trimmedInput}"`
+                    : lastAddedCategory
+                    ? `Newly Added Category`
+                    : showAllCategories
+                    ? `All Categories (${categoriesList.length})`
+                    : `Existing Category`}
+                </span>
               </h4>
-              {categoriesList.length > 4 && (
-                <div className="relative w-44">
-                  <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={searchFilter}
-                    onChange={(e) => setSearchFilter(e.target.value)}
-                    placeholder="Search category..."
-                    className="w-full pl-7 pr-2.5 py-1 text-[11px] bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:bg-white focus:border-indigo-500 font-medium"
-                  />
-                </div>
+
+              {/* Toggle to optionally see all categories when not actively searching */}
+              {!trimmedInput && !lastAddedCategory && categoriesList.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllCategories(!showAllCategories)}
+                  className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  {showAllCategories ? (
+                    <>
+                      <EyeOff className="w-3 h-3" />
+                      <span>Hide All</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3 h-3" />
+                      <span>View All ({categoriesList.length})</span>
+                    </>
+                  )}
+                </button>
               )}
             </div>
 
             {fetchingCategories ? (
-              <div className="py-8 text-center text-slate-400 flex items-center justify-center gap-2">
+              <div className="py-6 text-center text-slate-400 flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
                 <span className="text-xs">Loading categories...</span>
               </div>
             ) : filteredCategories.length === 0 ? (
-              <div className="py-6 text-center text-slate-400 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
-                {searchFilter ? 'No categories match your search.' : 'No categories available yet.'}
+              <div className="py-6 px-4 text-center text-slate-500 bg-slate-50 border border-dashed border-slate-200 rounded-xl text-xs space-y-1">
+                {trimmedInput ? (
+                  <>
+                    <p className="font-semibold text-slate-700">
+                      No existing category named "{trimmedInput}"
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Click the <span className="font-bold text-indigo-600">"Add"</span> button above to create it.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold text-slate-600">
+                      Type a category name above to search or manage.
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Only the category you type will be shown here.
+                    </p>
+                  </>
+                )}
               </div>
             ) : (
               <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-56 overflow-y-auto shadow-2xs bg-white">
